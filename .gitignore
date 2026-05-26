@@ -1,0 +1,21 @@
+# Large binary embedding files (too large for GitHub, not needed for the web app)
+res/*_embeddings.npy
+
+# Metadata CSVs (intermediate files used during UMAP computation)
+res/*_metadata.csv
+
+# Reference genome annotation archive (downloaded by download_annotations.py)
+res/refGene.txt.gz
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

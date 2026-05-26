@@ -1,0 +1,3633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive UMAP visualization of ALPHAGenome DNA foundation model embeddings across the human genome (hg38). Explore genomic bins, genes, and biological pathways in latent space.">
+    <meta name="keywords" content="genomics, DNA embeddings, UMAP, ALPHAGenome, bioinformatics, visualization, human genome, hg38">
+    <meta property="og:title" content="ALPHAGenome UMAP Explorer">
+    <meta property="og:description" content="Interactive visualization of latent relationships between genomic regions using DNA foundation model embeddings.">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧬</text></svg>">
+    <title>ALPHAGenome UMAP Explorer</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(17, 24, 39, 0.75);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-primary: #6366f1; /* Indigo */
+            --accent-secondary: #06b6d4; /* Cyan */
+            --accent-success: #10b981; /* Emerald */
+            --glow: 0 0 20px rgba(99, 102, 241, 0.35);
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(6, 116, 212, 0.15) 0%, transparent 40%);
+        }
+
+        /* Top Navigation Header */
+        header {
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        .header-title-container {
+            flex: 0 0 auto;
+        }
+
+        .header-search-container {
+            flex: 1 1 auto;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .header-title-container h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, #fff 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-title-container h1 span {
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .stats-badge-container {
+            display: flex;
+            gap: 16px;
+        }
+
+        .stat-badge {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--panel-border);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .stat-badge .value {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--accent-secondary);
+        }
+
+        .stat-badge .label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Main Workspace Container */
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Sidebar Control Panel */
+        .sidebar {
+            width: 380px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 20px;
+            gap: 20px;
+            z-index: 5;
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #d1d5db;
+        }
+
+        select, input[type="text"], input[type="number"], button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--panel-border);
+            color: var(--text-primary);
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-family: var(--font-main);
+            font-size: 0.85rem;
+            outline: none;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        select:focus, input[type="text"]:focus, input[type="number"]:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        select option {
+            background-color: #111827;
+            color: var(--text-primary);
+        }
+
+        /* Toggle Button Group */
+        .btn-group {
+            display: flex;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 8px;
+            padding: 3px;
+            border: 1px solid var(--panel-border);
+        }
+
+        .btn-group button {
+            background: transparent;
+            border: none;
+            padding: 8px 12px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 50%;
+        }
+
+        .btn-group button.active {
+            background: var(--accent-primary);
+            color: white;
+            box-shadow: var(--glow);
+        }
+
+        /* Range Slider Styling */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent-primary);
+            background: rgba(255, 255, 255, 0.1);
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .slider-val {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            width: 32px;
+            text-align: right;
+            color: var(--accent-secondary);
+        }
+
+        /* Region search input + button */
+        .search-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-row input {
+            flex: 1;
+        }
+
+        .search-row button {
+            width: auto;
+            background: var(--accent-primary);
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            white-space: nowrap;
+        }
+
+        .search-row button:hover {
+            opacity: 0.9;
+            box-shadow: var(--glow);
+        }
+
+        /* Inspector panel details styling */
+        .inspector-panel {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .inspector-placeholder {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-align: center;
+            padding: 20px 0;
+            font-style: italic;
+        }
+
+        .inspector-details-box {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .inspector-field {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+        }
+
+        .inspector-label {
+            color: var(--text-secondary);
+        }
+
+        .inspector-value {
+            font-family: var(--font-mono);
+            font-weight: 500;
+        }
+
+        .inspector-value.highlight {
+            color: var(--accent-secondary);
+        }
+
+        .neighborhood-list {
+            margin-top: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 120px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .neighbor-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            display: flex;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .neighbor-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .neighbor-item.current {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: rgba(6, 182, 212, 0.4);
+            font-weight: 600;
+        }
+
+        /* Inspector Tab Headers */
+        .inspector-tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 10px;
+            gap: 4px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 6px 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            transition: all 0.15s ease;
+            text-align: center;
+            border-bottom: 2px solid transparent;
+            width: auto;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-secondary);
+            border-bottom-color: var(--accent-secondary);
+            background: rgba(6, 182, 212, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Genes & Pathways tab styling */
+        .genes-badge-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+            max-height: 90px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .gene-badge {
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: #a5b4fc;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .gene-badge:hover {
+            background: var(--accent-primary);
+            color: #FFFFFF;
+            box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+        }
+
+        .gene-badge.active {
+            background: var(--accent-secondary);
+            border-color: var(--accent-secondary);
+            color: #0b0f19;
+            font-weight: 600;
+        }
+
+        .gene-summary-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 12px;
+            max-height: 110px;
+            overflow-y: auto;
+        }
+
+        .pathways-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 140px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .pathway-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 4px;
+            padding: 6px;
+            font-size: 0.65rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .pathway-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pathway-source-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #6ee7b7;
+            font-size: 0.55rem;
+            font-weight: 600;
+            padding: 1px 4px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .pathway-source-badge.reactome {
+            background: rgba(249, 115, 22, 0.15);
+            color: #fdba74;
+        }
+
+        .pathway-name {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .pathway-id-span {
+            color: var(--accent-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            align-self: flex-start;
+            margin-top: 2px;
+        }
+
+        /* Main Visualization Panel */
+        .visualization-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #plotly-div {
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* Karyotype Container Styling */
+        .karyotype-container {
+            background: rgba(10, 15, 30, 0.6);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--panel-border);
+            padding: 16px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            height: 250px;
+            box-sizing: border-box;
+        }
+
+        .karyotype-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .karyotype-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #d1d5db;
+        }
+
+        .karyotype-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+        }
+
+        .karyotype-subtitle .highlight-val {
+            color: var(--accent-secondary);
+            font-weight: 600;
+        }
+
+        .karyotype-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 4px;
+        }
+
+        .karyotype-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .karyotype-chrom-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            width: 48px;
+            text-align: left;
+        }
+
+        .karyotype-bar-wrapper {
+            flex: 1;
+            position: relative;
+            height: 10px;
+        }
+
+        .karyotype-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 3px;
+            position: relative;
+            top: 2px;
+        }
+
+        /* Centromere Styling */
+        .karyotype-centromere {
+            position: absolute;
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                #1e293b,
+                #1e293b 3px,
+                #475569 3px,
+                #475569 6px
+            );
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            border-right: 1px solid rgba(255, 255, 255, 0.15);
+            z-index: 1; /* behind highlights, but visible on bar */
+            border-radius: 2px;
+        }
+
+        .karyotype-highlights {
+            position: absolute;
+            top: 2px;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .karyotype-highlight-segment {
+            position: absolute;
+            height: 100%;
+            border-radius: 1px;
+            box-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            pointer-events: auto; /* enable click to select */
+            transition: transform 0.1s ease, filter 0.1s ease;
+        }
+
+        .karyotype-highlight-segment:hover {
+            transform: scaleY(1.5);
+            filter: brightness(1.3);
+            z-index: 5;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            transition: opacity 0.5s ease, visibility 0.5s;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .dna-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid transparent;
+            border-top: 4px solid var(--accent-primary);
+            border-bottom: 4px solid var(--accent-secondary);
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+            position: relative;
+        }
+
+        .dna-spinner::before {
+            content: '';
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            right: 6px;
+            bottom: 6px;
+            border: 4px solid transparent;
+            border-left: 4px solid var(--accent-secondary);
+            border-right: 4px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin-reverse 1s linear infinite;
+        }
+
+        .loading-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.05em;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes spin-reverse {
+            0% { transform: rotate(360deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* Floating Controls Panel Over the Map */
+        .floating-controls-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 15;
+            background: rgba(11, 15, 25, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(99, 102, 241, 0.15);
+            width: 280px;
+            max-height: 400px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .floating-controls-panel.collapsed {
+            width: 160px;
+            max-height: 41px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .floating-panel-toggle {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            padding: 12px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+            transition: all 0.2s ease;
+            text-align: left;
+            border-bottom: 1px solid transparent;
+            outline: none;
+        }
+
+        .floating-panel-toggle:hover {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--accent-secondary);
+        }
+
+        .floating-controls-panel:not(.collapsed) .floating-panel-toggle {
+            border-bottom-color: var(--panel-border);
+        }
+
+        .floating-panel-toggle svg {
+            transition: transform 0.3s ease;
+        }
+
+        .floating-panel-content {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            opacity: 1;
+            transition: opacity 0.2s ease;
+        }
+
+        .floating-controls-panel.collapsed .floating-panel-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .floating-section-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-secondary);
+            margin-bottom: 2px;
+        }
+
+        .floating-section-divider {
+            height: 1px;
+            background: var(--panel-border);
+            margin: 4px 0;
+        }
+
+        /* Autocomplete dropdown list */
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #0f172a;
+            border: 1px solid var(--panel-border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 180px;
+            overflow-y: auto;
+            z-index: 50;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        .autocomplete-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            transition: all 0.15s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .autocomplete-item:hover {
+            background: rgba(99, 102, 241, 0.15);
+            color: white;
+        }
+
+        .autocomplete-item .badge-count {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--accent-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+
+        /* Quick Tags Container */
+        .quick-tags-container {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .quick-tag-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .quick-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .quick-tag {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--panel-border);
+            color: var(--text-secondary);
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            width: auto;
+        }
+
+        .quick-tag:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .quick-tag.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: white;
+            box-shadow: var(--glow);
+        }
+
+        .chrom-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--panel-border);
+            color: var(--text-secondary);
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            width: auto;
+            font-family: var(--font-mono);
+            font-weight: 600;
+        }
+
+        .chrom-btn:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .chrom-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: white;
+            box-shadow: var(--glow);
+        }
+
+
+        /* Info Card */
+        .info-card {
+            background: rgba(245, 158, 11, 0.05);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        /* Sidebar Tabs styling */
+        .sidebar-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--panel-border);
+            margin: -20px -20px 15px -20px;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .sidebar-tab-btn {
+            flex: 1;
+            padding: 14px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s ease;
+            outline: none;
+        }
+
+        .sidebar-tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .sidebar-tab-btn.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .sidebar-tab-content {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-tab-content.active {
+            display: flex;
+        }
+
+        #unpin-btn:hover {
+            background: rgba(239, 68, 68, 0.2) !important;
+            border-color: rgba(239, 68, 68, 0.4) !important;
+            color: #fca5a5 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title-container">
+            <h1>ALPHAGenome DNA Embeddings <span>UMAP Explorer</span></h1>
+            <div class="header-subtitle">Interactive visualization of latent relationships between genomic regions</div>
+        </div>
+        <div class="header-search-container">
+            <div class="search-row">
+                <input type="text" id="search-input" placeholder="Search genomic range (e.g. chr3:10,000,000-20,000,000)" onkeydown="if(event.key === 'Enter') searchRegion()">
+                <button onclick="searchRegion()">Find</button>
+            </div>
+        </div>
+        <div class="stats-badge-container">
+            <div class="stat-badge">
+                <span class="value" id="stat-total-bins">12,421</span>
+                <span class="label">Total Bins</span>
+            </div>
+            <div class="stat-badge">
+                <span class="value">3,072</span>
+                <span class="label">Latent Dims</span>
+            </div>
+            <div class="stat-badge">
+                <span class="value">~131 KB</span>
+                <span class="label">Bin Resolution</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <!-- Sidebar controls -->
+        <aside class="sidebar">
+            <!-- Sidebar Tabs Header -->
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab-btn active" id="tab-btn-controls" onclick="switchSidebarTab('controls')">
+                    Controls
+                </button>
+                <button class="sidebar-tab-btn" id="tab-btn-inspector" onclick="switchSidebarTab('inspector')">
+                    Inspector
+                </button>
+            </div>
+
+            <!-- Tab Content: Controls -->
+            <div id="sidebar-tab-controls" class="sidebar-tab-content active">
+                <!-- UMAP Mapping Level Selector -->
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title">UMAP Mapping Level</span>
+                    <div class="control-group">
+                        <select id="umap-level-select" onchange="onMappingLevelChange()">
+                            <option value="bins">Genomic Bins (131 KB)</option>
+                            <option value="genes">Individual Genes</option>
+                            <option value="pathways">Biological Pathways</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Chromosome View Selection -->
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <span>Chromosome View</span>
+                        <div style="display: flex; gap: 8px; font-family: sans-serif;">
+                            <button onclick="selectAllChromosomes()" style="background: transparent; border: none; color: var(--accent-secondary); font-size: 0.6rem; font-weight: 700; text-transform: uppercase; cursor: pointer; padding: 0; outline: none;">All</button>
+                            <span style="color: var(--text-secondary); font-size: 0.6rem;">|</span>
+                            <button onclick="deselectAllChromosomes()" style="background: transparent; border: none; color: var(--accent-secondary); font-size: 0.6rem; font-weight: 700; text-transform: uppercase; cursor: pointer; padding: 0; outline: none;">None</button>
+                        </div>
+                    </span>
+                    <div class="quick-tags" id="sidebar-chrom-list" style="margin-top: 6px;">
+                        <!-- Programmatically populated with X, Y, 1, 2, etc. -->
+                    </div>
+                </div>
+
+                <!-- Advanced Highlighting Panel -->
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title">
+                        <span>Advanced Highlighting</span>
+                        <button id="clear-highlight-btn" onclick="clearHighlight()" style="display: none; width: auto; padding: 2px 8px; font-size: 0.65rem; border-radius: 4px; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; cursor: pointer; border: 1px solid rgba(239, 68, 68, 0.3);">Clear</button>
+                    </span>
+                    <div class="control-group">
+                        <label>Highlight Mode</label>
+                        <select id="highlight-mode-select" onchange="onHighlightModeSelectChange()">
+                            <option value="none">Standard Coloring (Off)</option>
+                            <option value="gene">Overlapping Gene</option>
+                            <option value="pathway">Biological Pathway (KEGG/Reactome)</option>
+                            <option value="desert">Unannotated Deserts (No genes/pathways)</option>
+                        </select>
+                    </div>
+                    
+                    <div id="highlight-gene-container" style="display: none;" class="control-group">
+                        <label>Search Gene Symbol</label>
+                        <div style="position: relative;">
+                            <input type="text" id="highlight-gene-input" placeholder="Type gene (e.g. TP53, BRCA1)" oninput="filterGeneAutocomplete()">
+                            <div id="gene-autocomplete-list" class="autocomplete-list" style="display: none;"></div>
+                        </div>
+                        <div class="quick-tags-container">
+                            <span class="quick-tag-label">Suggestions:</span>
+                            <div id="quick-genes" class="quick-tags"></div>
+                        </div>
+                    </div>
+
+                    <div id="highlight-pathway-container" style="display: none;" class="control-group">
+                        <label>Search Pathway Name / ID</label>
+                        <div style="position: relative;">
+                            <input type="text" id="highlight-pathway-input" placeholder="Type pathway (e.g. Cell cycle, MAPK)" oninput="filterPathwayAutocomplete()">
+                            <div id="pathway-autocomplete-list" class="autocomplete-list" style="display: none;"></div>
+                        </div>
+                        <div class="quick-tags-container">
+                            <span class="quick-tag-label">Suggestions:</span>
+                            <div id="quick-pathways" class="quick-tags"></div>
+                        </div>
+                    </div>
+
+                    <div id="highlight-desert-container" style="display: none;" class="control-group">
+                        <div class="info-card">
+                            <div style="font-weight: 600; color: #f59e0b; font-size: 0.75rem; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                <span>Genomic Deserts</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.3;">
+                                Highlights genomic regions with no overlapping RefSeq genes and no mapped biological pathways.
+                            </div>
+                            <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-secondary);" id="desert-stats-text">
+                                Loading stats...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visual Settings -->
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title">Visual Settings</span>
+                    <div class="control-group">
+                        <label>Coloring Scheme</label>
+                        <select id="color-scheme" onchange="onColorSchemeChange()">
+                            <option value="chrom">By Chromosome (Discrete)</option>
+                            <option value="position">By Genomic Position (Continuous)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Color Scale</label>
+                        <select id="color-scale" onchange="onVisualChange()">
+                            <option value="Viridis">Viridis</option>
+                            <option value="Plasma">Plasma</option>
+                            <option value="Turbo">Turbo</option>
+                            <option value="Bluered">Cyan-Red</option>
+                            <option value="Electric">Electric Blue</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <div class="slider-container">
+                            <label>Point Size</label>
+                            <span class="slider-val" id="size-val">5.0</span>
+                        </div>
+                        <input type="range" id="point-size" min="1" max="15" step="0.5" value="5.0" oninput="updateSliderVal('point-size', 'size-val')">
+                    </div>
+                    <div class="control-group">
+                        <div class="slider-container">
+                            <label>Opacity</label>
+                            <span class="slider-val" id="opacity-val">0.7</span>
+                        </div>
+                        <input type="range" id="point-opacity" min="0.1" max="1.0" step="0.05" value="0.7" oninput="updateSliderVal('point-opacity', 'opacity-val')">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Inspector -->
+            <div id="sidebar-tab-inspector" class="sidebar-tab-content" style="flex: 1; overflow-y: auto;">
+                <div class="inspector-placeholder" id="inspector-placeholder" style="padding: 10px 0; color: var(--text-secondary); line-height: 1.4;">
+                    Click a data point on the UMAP plot to inspect its genomic coordinates and biological annotations.
+                </div>
+                
+                <!-- Dynamically populated fields -->
+                <div id="inspector-details" style="display: none; flex-direction: column; gap: 16px;">
+                    <div class="inspector-field" id="pin-status-row" style="display: none; margin-bottom: 4px; padding: 6px 10px; border-radius: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); justify-content: space-between; align-items: center;">
+                        <span class="inspector-label" style="display: flex; align-items: center; gap: 4px; color: #34d399; font-weight: 600; font-size: 0.75rem;">
+                            <span style="font-size: 0.8rem;">📌</span> Pinned Bin
+                        </span>
+                        <button id="unpin-btn" onclick="unpinBin(event)" style="padding: 2px 8px; font-size: 0.65rem; border-radius: 4px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">
+                            Unpin
+                        </button>
+                    </div>
+                    <!-- Coordinates Box -->
+                    <div class="inspector-details-box">
+                        <div class="inspector-field">
+                            <span class="inspector-label">Chromosome</span>
+                            <span class="inspector-value highlight" id="inspect-chrom">-</span>
+                        </div>
+                        <div class="inspector-field">
+                            <span class="inspector-label">Start Coordinate</span>
+                            <span class="inspector-value" id="inspect-start">-</span>
+                        </div>
+                        <div class="inspector-field">
+                            <span class="inspector-label">End Coordinate</span>
+                            <span class="inspector-value" id="inspect-end">-</span>
+                        </div>
+                        <div class="inspector-field">
+                            <span class="inspector-label">Span (Size)</span>
+                            <span class="inspector-value" id="inspect-span">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Linear Neighborhood -->
+                    <div class="sidebar-section">
+                        <span class="sidebar-section-title">Linear Neighborhood</span>
+                        <div class="neighborhood-list" id="inspect-neighborhood" style="max-height: 120px; overflow-y: auto;">
+                            <!-- Populated with sequence neighbours -->
+                        </div>
+                    </div>
+
+                    <!-- Overlapping Genes -->
+                    <div class="sidebar-section">
+                        <span class="sidebar-section-title">Overlapping Genes</span>
+                        <div id="genes-badge-container" class="genes-badge-container" style="max-height: 100px; overflow-y: auto;">
+                            <!-- Badges populate here -->
+                        </div>
+                        <!-- Gene summary card -->
+                        <div id="gene-summary-card" class="gene-summary-card" style="display: none; margin-top: 8px;">
+                            <div id="gene-summary-name" style="font-size: 0.75rem; font-weight: 700; color: var(--accent-secondary);">TP53</div>
+                            <div id="gene-summary-text" style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.3; margin-top: 4px;">Description...</div>
+                        </div>
+                    </div>
+
+                    <!-- Biological Pathways -->
+                    <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                        <span class="sidebar-section-title">Biological Pathways</span>
+                        <div id="pathways-list" class="pathways-list" style="flex: 1; max-height: 180px; overflow-y: auto;">
+                            <!-- List populates here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Visualization container -->
+        <main class="visualization-container">
+            <div class="loading-overlay" id="loading-overlay">
+                <div class="dna-spinner"></div>
+                <div class="loading-text">Loading ALPHAGenome UMAP Coordinates...</div>
+            </div>
+            
+            <!-- UMAP Scatter Plot -->
+            <div id="plotly-div"></div>
+            
+            <!-- Karyotype Panel at the bottom -->
+            <div class="karyotype-container">
+                <div class="karyotype-header">
+                    <span class="karyotype-title">Physical Genome Karyotype</span>
+                    <span id="zoom-stat-text" class="karyotype-subtitle">Zoom UMAP to highlight corresponding physical regions</span>
+                </div>
+                <div class="karyotype-grid" id="karyotype-grid">
+                    <!-- Dynamically populated rows -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Global variables
+        let umapData = null;
+        let activeMappingLevel = 'bins'; // 'bins', 'genes', or 'pathways'
+        let geneUmapData = null;
+        let pathwayUmapData = null;
+        let pathwayToGenes = {}; // Maps pathway ID/Name to Set of gene symbols
+        let activeViewMode = 'global'; // 'global' or 'local'
+        let selectedChrom = 'all'; // Current selected chromosome: 'all' or specific e.g. 'chr1'
+        let selectedChroms = new Set(); // Tracks active selected chromosomes
+        let clickTimer = null;
+        let selectedIndex = null;
+        let pinnedIndex = null; // Track currently pinned bin
+        
+        let activeHighlightType = 'none'; // 'none', 'gene', 'pathway', 'desert'
+        let activeHighlightValue = '';    // e.g. 'TP53' or 'hsa04110'
+        let geneToBins = {};
+        let pathwayToBins = {};
+        let pathwaysList = [];
+        let genesList = [];
+        let unannotatedBins = [];
+
+        let maxGenomeLength = 0;
+        const chromMaxLengths = {};
+        const chromosomes = []; // Populated dynamically
+
+        // Color mapping for chromosomes to maintain consistent aesthetic palette
+        const chromColorPalette = {
+            'chr1': '#ef4444', // Red
+            'chr2': '#f97316', // Orange
+            'chr3': '#f59e0b', // Amber
+            'chr4': '#eab308', // Yellow
+            'chr5': '#84cc16', // Lime
+            'chr6': '#22c55e', // Green
+            'chr7': '#10b981', // Emerald
+            'chr8': '#059669', // Dark Emerald
+            'chr9': '#06b6d4', // Cyan
+            'chr10': '#0ea5e9', // Sky
+            'chr11': '#3b82f6', // Blue
+            'chr12': '#6366f1', // Indigo
+            'chr13': '#8b5cf6', // Violet
+            'chr14': '#a855f7', // Purple
+            'chr15': '#d946ef', // Fuchsia
+            'chr16': '#ec4899', // Pink
+            'chr17': '#f43f5e', // Rose
+            'chr18': '#fb7185', // Light Rose
+            'chr19': '#fda4af', // Very Light Rose/Peach
+            'chr20': '#fca5a5', // Light Red
+            'chr21': '#fed7aa', // Light Orange/Beige
+            'chr22': '#fef08a', // Light Yellow
+            'chrX': '#a7f3d0',  // Light Green
+            'chrY': '#93c5fd'   // Light Blue
+        };
+
+        // Centromere coordinates mapping (hg38 / GRCh38)
+        const centromereCoords = {
+            'chr1': [121500000, 128900000],
+            'chr2': [90500000, 96800000],
+            'chr3': [87900000, 93900000],
+            'chr4': [48200000, 52700000],
+            'chr5': [46100000, 50700000],
+            'chr6': [58500000, 62500000],
+            'chr7': [58000000, 61800000],
+            'chr8': [43200000, 47200000],
+            'chr9': [42200000, 45500000],
+            'chr10': [38900000, 42100000]
+        };
+
+        // State (Local Pre-downloaded File)
+        let activeGeneSummaries = {};
+        let activeGenePathways = [];
+        let localAnnotations = null;
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+        });
+
+        function fetchData() {
+            const cacheBust = '?cb=' + new Date().getTime();
+            fetch('res/umap_results.json' + cacheBust)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error("Unable to fetch UMAP coordinate file.");
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    umapData = data;
+                    document.getElementById('stat-total-bins').textContent = data.chrom.length.toLocaleString();
+                    
+                    // Load pre-downloaded local gene annotations
+                    return fetch('res/gene_annotations.json' + cacheBust)
+                        .then(res => {
+                            if (res.ok) {
+                                return res.json();
+                            }
+                            return null;
+                        })
+                        .catch(() => null);
+                })
+                .then(annotations => {
+                    if (annotations && annotations.bin_genes && annotations.gene_data) {
+                        localAnnotations = annotations;
+                        console.log("Loaded local gene/pathway annotations database. Running in Offline Mode.");
+                    } else {
+                        console.error("Local gene annotations file not found or corrupted.");
+                    }
+                    
+                    // Dynamically discover unique chromosomes from results file
+                    const uniqueChroms = [...new Set(umapData.chrom)];
+                    // Sort naturally (chr1, chr2, chr10)
+                    uniqueChroms.sort((a, b) => {
+                        const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                        const numB = parseInt(b.replace(/\D/g, '')) || 0;
+                        return numA - numB;
+                    });
+                    
+                    chromosomes.length = 0;
+                    chromosomes.push(...uniqueChroms);
+                    
+                    // Populate chromosome selection list
+                    populateChromosomeSelection();
+                    
+                    // Initialize lengths
+                    initKaryotypeLengths();
+                    
+                    // Render layout
+                    buildKaryotypeLayout();
+
+                    // Build Search Indexes & populate Quick Suggestions
+                    buildSearchIndexes();
+                    populateQuickSuggestions();
+                    
+                    // Hide loader
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                    
+                    // Init Plot
+                    renderPlot();
+                })
+                .catch(err => {
+                    console.error("Error loading JSON: ", err);
+                    document.querySelector('.loading-text').textContent = "Failed to load UMAP results. Make sure run_umap.py has completed.";
+                });
+        }
+
+        // Dynamically populate chromosome selection buttons in sidebar
+        function populateChromosomeSelection() {
+            const container = document.getElementById('sidebar-chrom-list');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            // Populate selectedChroms with all unique chromosomes discovered
+            selectedChroms = new Set(chromosomes);
+            
+            // Add individual chromosomes
+            chromosomes.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = 'chrom-btn';
+                btn.setAttribute('data-chrom', c);
+                const displayName = c.replace('chr', '');
+                btn.textContent = displayName;
+                
+                // Click handler with timer for double click support
+                btn.onclick = () => {
+                    if (clickTimer) {
+                        clearTimeout(clickTimer);
+                        clickTimer = null;
+                        selectOnlyChromosome(c);
+                    } else {
+                        clickTimer = setTimeout(() => {
+                            toggleChromosomeSelection(c);
+                            clickTimer = null;
+                        }, 250);
+                    }
+                };
+                
+                // Double click handler
+                btn.ondblclick = (e) => {
+                    e.preventDefault();
+                    if (clickTimer) {
+                        clearTimeout(clickTimer);
+                        clickTimer = null;
+                    }
+                    selectOnlyChromosome(c);
+                };
+                
+                container.appendChild(btn);
+            });
+
+            // Initial render of selection styles
+            updateSelectionState();
+        }
+
+        // Toggle selection of a single chromosome
+        function toggleChromosomeSelection(chrom) {
+            if (selectedChroms.has(chrom)) {
+                // Don't allow deselecting the last remaining chromosome to avoid empty state
+                if (selectedChroms.size > 1) {
+                    selectedChroms.delete(chrom);
+                }
+            } else {
+                selectedChroms.add(chrom);
+            }
+            updateSelectionState();
+        }
+
+        // Select ONLY this chromosome
+        function selectOnlyChromosome(chrom) {
+            selectedChroms.clear();
+            selectedChroms.add(chrom);
+            updateSelectionState();
+        }
+
+        // Select all chromosomes
+        function selectAllChromosomes() {
+            chromosomes.forEach(c => selectedChroms.add(c));
+            updateSelectionState();
+        }
+
+        // Deselect all chromosomes (keep first one to avoid empty state)
+        function deselectAllChromosomes() {
+            selectedChroms.clear();
+            if (chromosomes.length > 0) {
+                selectedChroms.add(chromosomes[0]);
+            }
+            updateSelectionState();
+        }
+
+        // Update activeViewMode, selectedChrom, and visual button states
+        function updateSelectionState() {
+            if (selectedChroms.size === 1) {
+                activeViewMode = 'local';
+                selectedChrom = [...selectedChroms][0];
+            } else {
+                activeViewMode = 'global';
+                selectedChrom = 'all';
+            }
+
+            const colorScheme = document.getElementById('color-scheme');
+            if (activeViewMode === 'local') {
+                colorScheme.value = 'position';
+                colorScheme.disabled = true;
+            } else {
+                colorScheme.disabled = activeMappingLevel === 'pathways';
+            }
+
+            // Update UI buttons styling
+            chromosomes.forEach(c => {
+                const btn = document.querySelector(`.chrom-btn[data-chrom="${c}"]`);
+                if (!btn) return;
+                
+                const isSelected = selectedChroms.has(c);
+                const color = chromColorPalette[c] || '#9ca3af';
+
+                if (isSelected) {
+                    btn.classList.add('active');
+                    btn.style.backgroundColor = color + '33'; // ~20% opacity
+                    btn.style.borderColor = color;
+                    btn.style.color = '#ffffff';
+                    btn.style.boxShadow = `0 0 8px ${color}55`;
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
+                    btn.style.borderColor = 'var(--panel-border)';
+                    btn.style.color = 'var(--text-secondary)';
+                    btn.style.boxShadow = 'none';
+                }
+            });
+
+            resetKaryotypeHighlight();
+            renderPlot();
+        }
+
+        // Initialize Karyotype Metadata
+        function initKaryotypeLengths() {
+            chromosomes.forEach(c => {
+                chromMaxLengths[c] = 0;
+            });
+            
+            for (let i = 0; i < umapData.chrom.length; i++) {
+                const chrom = umapData.chrom[i];
+                const end = umapData.end[i];
+                if (chromMaxLengths[chrom] !== undefined && end > chromMaxLengths[chrom]) {
+                    chromMaxLengths[chrom] = end;
+                }
+            }
+            
+            // Find max length across all
+            maxGenomeLength = Math.max(...Object.values(chromMaxLengths));
+        }
+
+        // Build the karyotype bar rows dynamically
+        function buildKaryotypeLayout() {
+            const grid = document.getElementById('karyotype-grid');
+            grid.innerHTML = '';
+            
+            chromosomes.forEach(c => {
+                const chromLen = chromMaxLengths[c];
+                if (chromLen === 0) return; // skip if no data
+                
+                const widthPercent = (chromLen / maxGenomeLength) * 100;
+                
+                // Centromere overlay positioning (falls back to 40-44% if unknown chrom)
+                const cenCoords = centromereCoords[c] || [chromLen * 0.4, chromLen * 0.44];
+                const cenStart = cenCoords[0];
+                const cenEnd = cenCoords[1];
+                const cenLeft = (cenStart / chromLen) * 100;
+                const cenWidth = ((cenEnd - cenStart) / chromLen) * 100;
+                
+                const row = document.createElement('div');
+                row.className = 'karyotype-row';
+                row.innerHTML = `
+                    <div class="karyotype-chrom-label">${c}</div>
+                    <div class="karyotype-bar-wrapper" style="max-width: ${widthPercent}%;">
+                        <div class="karyotype-bar" id="karyotype-bar-${c}">
+                            <div class="karyotype-centromere" style="left: ${cenLeft}%; width: ${cenWidth}%;" title="Centromere: ${cenStart.toLocaleString()} - ${cenEnd.toLocaleString()} bp"></div>
+                            <div class="karyotype-highlights" id="karyotype-highlights-${c}"></div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.65rem; color: var(--text-secondary); width: 60px; font-family: var(--font-mono); text-align: right;">
+                        ${(chromLen/1000000).toFixed(1)} MB
+                    </div>
+                `;
+                grid.appendChild(row);
+            });
+        }
+
+        // Switch Sidebar Tabs (Controls vs Inspector)
+        function switchSidebarTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.sidebar-tab-content').forEach(content => {
+                content.classList.remove('active');
+                content.style.display = 'none';
+            });
+            
+            // Deactivate all tab buttons
+            document.querySelectorAll('.sidebar-tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected content
+            const targetContent = document.getElementById(`sidebar-tab-${tabId}`);
+            if (targetContent) {
+                targetContent.classList.add('active');
+                targetContent.style.display = 'flex';
+            }
+            
+            // Activate selected button
+            const targetBtn = document.getElementById(`tab-btn-${tabId}`);
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+            }
+        }
+
+
+
+        function onColorSchemeChange() {
+            renderPlot();
+        }
+
+        function onVisualChange() {
+            renderPlot();
+        }
+
+        function updateSliderVal(sliderId, valId) {
+            const val = document.getElementById(sliderId).value;
+            document.getElementById(valId).textContent = parseFloat(val).toFixed(1);
+            onVisualChange();
+        }
+
+        // Render Plotly plot
+        // Load Gene UMAP Data on demand
+        function loadGeneUmapData(callback) {
+            if (geneUmapData) {
+                callback();
+                return;
+            }
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.querySelector('.loading-text').textContent = "Loading Gene-level UMAP Coordinates...";
+            const cacheBust = '?cb=' + new Date().getTime();
+            fetch('res/gene_umap_results.json' + cacheBust)
+                .then(res => {
+                    if (!res.ok) throw new Error("Unable to fetch gene UMAP coordinates.");
+                    return res.json();
+                })
+                .then(data => {
+                    geneUmapData = data;
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                    callback();
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.querySelector('.loading-text').textContent = "Failed to load Gene UMAP coordinates.";
+                });
+        }
+
+        // Load Pathway UMAP Data on demand
+        function loadPathwayUmapData(callback) {
+            if (pathwayUmapData) {
+                callback();
+                return;
+            }
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.querySelector('.loading-text').textContent = "Loading Pathway-level UMAP Coordinates...";
+            const cacheBust = '?cb=' + new Date().getTime();
+            fetch('res/pathway_umap_results.json' + cacheBust)
+                .then(res => {
+                    if (!res.ok) throw new Error("Unable to fetch pathway UMAP coordinates.");
+                    return res.json();
+                })
+                .then(data => {
+                    pathwayUmapData = data;
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                    callback();
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.querySelector('.loading-text').textContent = "Failed to load Pathway UMAP coordinates.";
+                });
+        }
+
+        // Handle Mapping Level change
+        function onMappingLevelChange(callback) {
+            const level = document.getElementById('umap-level-select').value;
+            activeMappingLevel = level;
+            
+            // Clear pins & inspector details
+            unpinBin();
+            document.getElementById('inspector-details').style.display = 'none';
+            document.getElementById('inspector-placeholder').style.display = 'block';
+            
+            const chromSection = document.getElementById('sidebar-chrom-list').parentElement;
+            const colorScheme = document.getElementById('color-scheme');
+            
+            if (level === 'bins') {
+                chromSection.style.opacity = '1.0';
+                chromSection.style.pointerEvents = 'auto';
+                colorScheme.disabled = false;
+                
+                renderPlot();
+                resetKaryotypeHighlight();
+                if (callback) callback();
+            } else if (level === 'genes') {
+                chromSection.style.opacity = '1.0';
+                chromSection.style.pointerEvents = 'auto';
+                colorScheme.disabled = false;
+                
+                loadGeneUmapData(() => {
+                    renderPlot();
+                    resetKaryotypeHighlight();
+                    if (callback) callback();
+                });
+            } else if (level === 'pathways') {
+                chromSection.style.opacity = '0.3';
+                chromSection.style.pointerEvents = 'none';
+                colorScheme.value = 'chrom';
+                colorScheme.disabled = true;
+                
+                loadPathwayUmapData(() => {
+                    renderPlot();
+                    resetKaryotypeHighlight();
+                    if (callback) callback();
+                });
+            }
+        }
+
+        // Master Render Plot
+        function renderPlot() {
+            if (activeMappingLevel === 'bins') {
+                renderBinsPlot();
+            } else if (activeMappingLevel === 'genes') {
+                renderGenesPlot();
+            } else if (activeMappingLevel === 'pathways') {
+                renderPathwaysPlot();
+            }
+            setupPlotInteractions();
+        }
+
+        // Common layout configuration helper
+        function getCommonLayout(xTitle, yTitle) {
+            return {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                margin: { t: 40, b: 40, l: 40, r: 20 },
+                hovermode: 'closest',
+                xaxis: {
+                    showgrid: true,
+                    gridcolor: 'rgba(255,255,255,0.05)',
+                    zeroline: false,
+                    tickfont: { color: '#6b7280', size: 9 },
+                    title: { text: xTitle, font: { color: '#6b7280', size: 10 } }
+                },
+                yaxis: {
+                    showgrid: true,
+                    gridcolor: 'rgba(255,255,255,0.05)',
+                    zeroline: false,
+                    tickfont: { color: '#6b7280', size: 9 },
+                    title: { text: yTitle, font: { color: '#6b7280', size: 10 } }
+                },
+                legend: {
+                    font: { color: '#E5E7EB', size: 10 },
+                    orientation: 'h',
+                    y: 1.08,
+                    x: 0
+                },
+                showlegend: false
+            };
+        }
+
+        // Render Bins (Original Plotly Render)
+        function renderBinsPlot() {
+            if (!umapData) return;
+
+            const colorScheme = document.getElementById('color-scheme').value;
+            const colorScale = document.getElementById('color-scale').value;
+            const pointSize = parseFloat(document.getElementById('point-size').value);
+            const pointOpacity = parseFloat(document.getElementById('point-opacity').value);
+            
+            let traces = [];
+            const isContinuous = activeViewMode === 'local' || colorScheme === 'position';
+
+            // Check if there is an active highlight
+            const highlightIndices = getHighlightedIndices();
+            const hasHighlight = (activeHighlightType !== 'none' && highlightIndices.length > 0);
+            const highlightSet = new Set(highlightIndices);
+
+            if (hasHighlight) {
+                // RENDER HIGHLIGHT MODE (Background muted, foreground glowing)
+                let bg_xs = [], bg_ys = [], bg_indices = [];
+                let fg_xs = [], fg_ys = [], fg_colors = [], fg_indices = [];
+                
+                const xArr = activeViewMode === 'global' ? umapData.global_x : umapData.local_x;
+                const yArr = activeViewMode === 'global' ? umapData.global_y : umapData.local_y;
+
+                for (let i = 0; i < umapData.chrom.length; i++) {
+                    const chrom = umapData.chrom[i];
+                    if (activeViewMode === 'local' && chrom !== selectedChrom) continue;
+                    if (activeViewMode === 'global' && !selectedChroms.has(chrom)) continue;
+                    
+                    if (highlightSet.has(i)) {
+                        fg_xs.push(xArr[i]);
+                        fg_ys.push(yArr[i]);
+                        fg_indices.push(i);
+                        
+                        if (isContinuous) {
+                            fg_colors.push(umapData.start[i]);
+                        } else {
+                            fg_colors.push(chromColorPalette[chrom] || '#9ca3af');
+                        }
+                    } else {
+                        bg_xs.push(xArr[i]);
+                        bg_ys.push(yArr[i]);
+                        bg_indices.push(i);
+                    }
+                }
+                
+                // Trace 1: Muted Background
+                traces.push({
+                    x: bg_xs,
+                    y: bg_ys,
+                    mode: 'markers',
+                    customdata: bg_indices,
+                    marker: {
+                        size: Math.max(1.5, pointSize * 0.7),
+                        opacity: 0.12,
+                        color: '#2e354f', // Dark slate blue
+                        line: { width: 0 }
+                    },
+                    hoverinfo: 'none',
+                    showlegend: false
+                });
+                
+                // Trace 2: Glowing Highlighted Foreground
+                traces.push({
+                    x: fg_xs,
+                    y: fg_ys,
+                    mode: 'markers',
+                    customdata: fg_indices,
+                    marker: {
+                        size: pointSize + 3,
+                        opacity: 0.95,
+                        color: fg_colors,
+                        colorscale: isContinuous ? colorScale : null,
+                        showscale: isContinuous,
+                        colorbar: isContinuous ? {
+                            title: { text: 'Start Pos (bp)', font: { color: '#E5E7EB', size: 10 } },
+                            tickfont: { color: '#9CA3AF' },
+                            thickness: 12
+                        } : null,
+                        line: { width: 1.2, color: '#ffffff' } // Bright border to make points pop
+                    },
+                    hoverinfo: 'none',
+                    name: activeHighlightType === 'gene' ? `Gene: ${activeHighlightValue}` :
+                          activeHighlightType === 'pathway' ? `Pathway: ${activeHighlightValue}` : 'Unannotated'
+                });
+
+            } else {
+                // STANDARD COLORING SCHEME (No Active Highlight)
+                if (activeViewMode === 'global') {
+                    // GLOBAL UMAP VIEW
+                    if (colorScheme === 'chrom' && selectedChrom === 'all') {
+                        chromosomes.forEach(c => {
+                            if (!selectedChroms.has(c)) return;
+                            let xs = [], ys = [], indices = [];
+                            for (let i = 0; i < umapData.chrom.length; i++) {
+                                if (umapData.chrom[i] === c) {
+                                    xs.push(umapData.global_x[i]);
+                                    ys.push(umapData.global_y[i]);
+                                    indices.push(i);
+                                }
+                            }
+                            
+                            traces.push({
+                                x: xs,
+                                y: ys,
+                                mode: 'markers',
+                                name: c,
+                                customdata: indices,
+                                marker: {
+                                    size: pointSize,
+                                    opacity: pointOpacity,
+                                    color: chromColorPalette[c] || '#9ca3af',
+                                    line: { width: 0 }
+                                },
+                                hoverinfo: 'none'
+                            });
+                        });
+                    } else {
+                        let xs = [], ys = [], colors = [], indices = [];
+                        
+                        for (let i = 0; i < umapData.chrom.length; i++) {
+                            const chrom = umapData.chrom[i];
+                            if (!selectedChroms.has(chrom)) continue;
+                            
+                            xs.push(umapData.global_x[i]);
+                            ys.push(umapData.global_y[i]);
+                            indices.push(i);
+                            
+                            if (colorScheme === 'chrom') {
+                                colors.push(chromColorPalette[chrom] || '#9ca3af');
+                            } else {
+                                colors.push(umapData.start[i]);
+                            }
+                        }
+                        
+                        traces.push({
+                            x: xs,
+                            y: ys,
+                            mode: 'markers',
+                            customdata: indices,
+                            marker: {
+                                size: pointSize,
+                                opacity: pointOpacity,
+                                color: colors,
+                                colorscale: isContinuous ? colorScale : null,
+                                showscale: isContinuous,
+                                colorbar: isContinuous ? {
+                                    title: { text: 'Start Pos (bp)', font: { color: '#E5E7EB', size: 10 } },
+                                    tickfont: { color: '#9CA3AF' },
+                                    thickness: 12
+                                } : null,
+                                line: { width: 0 }
+                            },
+                            hoverinfo: 'none'
+                        });
+                    }
+                } else {
+                    // LOCAL UMAP VIEW
+                    const chrom = selectedChrom === 'all' ? 'chr1' : selectedChrom;
+                    let xs = [], ys = [], colors = [], indices = [];
+                    
+                    for (let i = 0; i < umapData.chrom.length; i++) {
+                        if (umapData.chrom[i] === chrom) {
+                            xs.push(umapData.local_x[i]);
+                            ys.push(umapData.local_y[i]);
+                            indices.push(i);
+                            colors.push(umapData.start[i]);
+                        }
+                    }
+                    
+                    traces.push({
+                        x: xs,
+                        y: ys,
+                        mode: 'markers',
+                        name: chrom,
+                        customdata: indices,
+                        marker: {
+                            size: pointSize,
+                            opacity: pointOpacity,
+                            color: colors,
+                            colorscale: colorScale,
+                            showscale: true,
+                            colorbar: {
+                                title: { text: 'Start Pos (bp)', font: { color: '#E5E7EB', size: 10 } },
+                                tickfont: { color: '#9CA3AF' },
+                                thickness: 12
+                            },
+                            line: { width: 0 }
+                        },
+                        hoverinfo: 'none'
+                    });
+                }
+            }
+
+            const layout = getCommonLayout('UMAP dimension 1', 'UMAP dimension 2');
+
+            Plotly.newPlot('plotly-div', traces, layout, {
+                responsive: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
+            });
+        }
+
+        // Render Gene-level UMAP
+        function renderGenesPlot() {
+            if (!geneUmapData) return;
+            
+            const colorScheme = document.getElementById('color-scheme').value;
+            const colorScale = document.getElementById('color-scale').value;
+            const pointSize = parseFloat(document.getElementById('point-size').value);
+            const pointOpacity = parseFloat(document.getElementById('point-opacity').value);
+            
+            let traces = [];
+            const isContinuous = colorScheme === 'position';
+            
+            const highlightIndices = getHighlightedGeneIndices();
+            const hasHighlight = (activeHighlightType !== 'none' && highlightIndices.length > 0);
+            const highlightSet = new Set(highlightIndices);
+            
+            if (hasHighlight) {
+                let bg_xs = [], bg_ys = [], bg_indices = [];
+                let fg_xs = [], fg_ys = [], fg_colors = [], fg_indices = [];
+                
+                for (let i = 0; i < geneUmapData.symbol.length; i++) {
+                    const chrom = geneUmapData.chrom[i];
+                    if (!selectedChroms.has(chrom)) continue;
+                    
+                    if (highlightSet.has(i)) {
+                        fg_xs.push(geneUmapData.x[i]);
+                        fg_ys.push(geneUmapData.y[i]);
+                        fg_indices.push(i);
+                        
+                        if (isContinuous) {
+                            fg_colors.push(geneUmapData.start[i]);
+                        } else {
+                            fg_colors.push(chromColorPalette[chrom] || '#9ca3af');
+                        }
+                    } else {
+                        bg_xs.push(geneUmapData.x[i]);
+                        bg_ys.push(geneUmapData.y[i]);
+                        bg_indices.push(i);
+                    }
+                }
+                
+                // Muted Background
+                traces.push({
+                    x: bg_xs,
+                    y: bg_ys,
+                    mode: 'markers',
+                    customdata: bg_indices,
+                    marker: {
+                        size: Math.max(1.5, pointSize * 0.7),
+                        opacity: 0.08,
+                        color: '#2e354f',
+                        line: { width: 0 }
+                    },
+                    hoverinfo: 'none',
+                    showlegend: false
+                });
+                
+                // Glowing Foreground
+                traces.push({
+                    x: fg_xs,
+                    y: fg_ys,
+                    mode: 'markers',
+                    customdata: fg_indices,
+                    marker: {
+                        size: pointSize + 3,
+                        opacity: 0.95,
+                        color: fg_colors,
+                        colorscale: isContinuous ? colorScale : null,
+                        showscale: isContinuous,
+                        colorbar: isContinuous ? {
+                            title: { text: 'Start Pos (bp)', font: { color: '#E5E7EB', size: 10 } },
+                            tickfont: { color: '#9CA3AF' },
+                            thickness: 12
+                        } : null,
+                        line: { width: 1.2, color: '#ffffff' }
+                    },
+                    hoverinfo: 'none',
+                    name: activeHighlightType === 'gene' ? `Gene: ${activeHighlightValue}` : `Pathway Genes`
+                });
+            } else {
+                // Group by chromosome if discrete colorScheme
+                if (colorScheme === 'chrom') {
+                    chromosomes.forEach(c => {
+                        if (!selectedChroms.has(c)) return;
+                        let xs = [], ys = [], indices = [];
+                        for (let i = 0; i < geneUmapData.symbol.length; i++) {
+                            if (geneUmapData.chrom[i] === c) {
+                                xs.push(geneUmapData.x[i]);
+                                ys.push(geneUmapData.y[i]);
+                                indices.push(i);
+                            }
+                        }
+                        
+                        if (xs.length > 0) {
+                            traces.push({
+                                x: xs,
+                                y: ys,
+                                mode: 'markers',
+                                name: c,
+                                customdata: indices,
+                                marker: {
+                                    size: pointSize,
+                                    opacity: pointOpacity,
+                                    color: chromColorPalette[c] || '#9ca3af',
+                                    line: { width: 0 }
+                                },
+                                hoverinfo: 'none'
+                            });
+                        }
+                    });
+                } else {
+                    // Continuous coloring
+                    let xs = [], ys = [], colors = [], indices = [];
+                    for (let i = 0; i < geneUmapData.symbol.length; i++) {
+                        const chrom = geneUmapData.chrom[i];
+                        if (!selectedChroms.has(chrom)) continue;
+                        
+                        xs.push(geneUmapData.x[i]);
+                        ys.push(geneUmapData.y[i]);
+                        indices.push(i);
+                        colors.push(geneUmapData.start[i]);
+                    }
+                    
+                    traces.push({
+                        x: xs,
+                        y: ys,
+                        mode: 'markers',
+                        customdata: indices,
+                        marker: {
+                            size: pointSize,
+                            opacity: pointOpacity,
+                            color: colors,
+                            colorscale: colorScale,
+                            showscale: true,
+                            colorbar: {
+                                title: { text: 'Start Pos (bp)', font: { color: '#E5E7EB', size: 10 } },
+                                tickfont: { color: '#9CA3AF' },
+                                thickness: 12
+                            },
+                            line: { width: 0 }
+                        },
+                        hoverinfo: 'none'
+                    });
+                }
+            }
+            
+            const layout = getCommonLayout('Gene UMAP dimension 1', 'Gene UMAP dimension 2');
+            Plotly.newPlot('plotly-div', traces, layout, {
+                responsive: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
+            });
+        }
+
+        // Render Pathway-level UMAP
+        function renderPathwaysPlot() {
+            if (!pathwayUmapData) return;
+            
+            const pointSize = parseFloat(document.getElementById('point-size').value);
+            const pointOpacity = parseFloat(document.getElementById('point-opacity').value);
+            
+            let traces = [];
+            const highlightIndices = getHighlightedPathwayIndices();
+            const hasHighlight = (activeHighlightType !== 'none' && highlightIndices.length > 0);
+            const highlightSet = new Set(highlightIndices);
+            
+            const sourceColorMap = {
+                'KEGG': '#10b981',      // Emerald
+                'Reactome': '#f97316'   // Orange
+            };
+            
+            if (hasHighlight) {
+                let bg_xs = [], bg_ys = [], bg_indices = [];
+                let fg_xs = [], fg_ys = [], fg_colors = [], fg_indices = [];
+                
+                for (let i = 0; i < pathwayUmapData.id.length; i++) {
+                    if (highlightSet.has(i)) {
+                        fg_xs.push(pathwayUmapData.x[i]);
+                        fg_ys.push(pathwayUmapData.y[i]);
+                        fg_indices.push(i);
+                        fg_colors.push(sourceColorMap[pathwayUmapData.source[i]] || '#6366f1');
+                    } else {
+                        bg_xs.push(pathwayUmapData.x[i]);
+                        bg_ys.push(pathwayUmapData.y[i]);
+                        bg_indices.push(i);
+                    }
+                }
+                
+                traces.push({
+                    x: bg_xs,
+                    y: bg_ys,
+                    mode: 'markers',
+                    customdata: bg_indices,
+                    marker: {
+                        size: Math.max(1.5, pointSize * 0.7),
+                        opacity: 0.08,
+                        color: '#2e354f',
+                        line: { width: 0 }
+                    },
+                    hoverinfo: 'none',
+                    showlegend: false
+                });
+                
+                traces.push({
+                    x: fg_xs,
+                    y: fg_ys,
+                    mode: 'markers',
+                    customdata: fg_indices,
+                    marker: {
+                        size: pointSize + 4,
+                        opacity: 0.95,
+                        color: fg_colors,
+                        line: { width: 1.5, color: '#ffffff' }
+                    },
+                    hoverinfo: 'none',
+                    name: activeHighlightType === 'pathway' ? `Pathway` : `Gene Pathways`
+                });
+            } else {
+                const sources = ['KEGG', 'Reactome'];
+                sources.forEach(src => {
+                    let xs = [], ys = [], indices = [];
+                    for (let i = 0; i < pathwayUmapData.id.length; i++) {
+                        if (pathwayUmapData.source[i] === src) {
+                            xs.push(pathwayUmapData.x[i]);
+                            ys.push(pathwayUmapData.y[i]);
+                            indices.push(i);
+                        }
+                    }
+                    
+                    if (xs.length > 0) {
+                        traces.push({
+                            x: xs,
+                            y: ys,
+                            mode: 'markers',
+                            name: src,
+                            customdata: indices,
+                            marker: {
+                                size: pointSize,
+                                opacity: pointOpacity,
+                                color: sourceColorMap[src] || '#6366f1',
+                                line: { width: 0 }
+                            },
+                            hoverinfo: 'none'
+                        });
+                    }
+                });
+            }
+            
+            const layout = getCommonLayout('Pathway UMAP dimension 1', 'Pathway UMAP dimension 2');
+            layout.showlegend = true;
+            
+            Plotly.newPlot('plotly-div', traces, layout, {
+                responsive: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
+            });
+        }
+
+        // Set up plot interactions (hover / click / zoom)
+        function setupPlotInteractions() {
+            const plotDiv = document.getElementById('plotly-div');
+            
+            plotDiv.on('plotly_hover', (data) => {
+                if (data.points && data.points[0]) {
+                    const idx = data.points[0].customdata;
+                    if (activeMappingLevel === 'bins') {
+                        inspectBin(idx);
+                        const chrom = umapData.chrom[idx];
+                        const start = umapData.start[idx];
+                        const end = umapData.end[idx];
+                        showHoverOnKaryotype(chrom, start, end);
+                    } else if (activeMappingLevel === 'genes') {
+                        inspectGene(idx);
+                        const chrom = geneUmapData.chrom[idx];
+                        const start = geneUmapData.start[idx];
+                        const end = geneUmapData.end[idx];
+                        showHoverOnKaryotype(chrom, start, end);
+                    } else if (activeMappingLevel === 'pathways') {
+                        inspectPathway(idx);
+                    }
+                }
+            });
+
+            plotDiv.on('plotly_unhover', () => {
+                const cursor = document.getElementById('karyotype-hover-cursor');
+                if (cursor) cursor.remove();
+            });
+
+            plotDiv.on('plotly_click', (data) => {
+                if (data.points && data.points[0]) {
+                    const idx = data.points[0].customdata;
+                    if (activeMappingLevel === 'bins') {
+                        inspectBin(idx, true);
+                    } else if (activeMappingLevel === 'genes') {
+                        inspectGene(idx, true);
+                    } else if (activeMappingLevel === 'pathways') {
+                        inspectPathway(idx, true);
+                    }
+                    highlightPoint(idx);
+                }
+            });
+
+            plotDiv.on('plotly_relayout', (eventData) => {
+                let xMin = null, xMax = null, yMin = null, yMax = null;
+                
+                if (eventData['xaxis.range[0]'] !== undefined) {
+                    xMin = eventData['xaxis.range[0]'];
+                    xMax = eventData['xaxis.range[1]'];
+                    yMin = eventData['yaxis.range[0]'];
+                    yMax = eventData['yaxis.range[1]'];
+                } else if (eventData['xaxis.range'] !== undefined) {
+                    xMin = eventData['xaxis.range'][0];
+                    xMax = eventData['xaxis.range'][1];
+                    yMin = eventData['yaxis.range'][0];
+                    yMax = eventData['yaxis.range'][1];
+                }
+                
+                if (xMin !== null && xMax !== null && yMin !== null && yMax !== null) {
+                    highlightKaryotypeInBox(xMin, xMax, yMin, yMax);
+                } else {
+                    resetKaryotypeHighlight();
+                }
+            });
+        }
+
+        // Show a glowing vertical cursor on the karyotype representing the current hovered item
+        function showHoverOnKaryotype(chrom, start, end) {
+            const oldCursor = document.getElementById('karyotype-hover-cursor');
+            if (oldCursor) oldCursor.remove();
+            
+            const maxEnd = chromMaxLengths[chrom];
+            const bar = document.getElementById(`karyotype-bar-${chrom}`);
+            if (bar && maxEnd > 0) {
+                const leftPercent = (start / maxEnd) * 100;
+                
+                const cursor = document.createElement('div');
+                cursor.id = 'karyotype-hover-cursor';
+                cursor.style.position = 'absolute';
+                cursor.style.left = `${leftPercent}%`;
+                cursor.style.width = '6px';
+                cursor.style.marginLeft = '-3px';
+                cursor.style.height = '14px';
+                cursor.style.top = '-4px';
+                cursor.style.backgroundColor = '#FFFFFF';
+                cursor.style.boxShadow = '0 0 6px #FFFFFF, 0 0 12px var(--accent-secondary)';
+                cursor.style.borderRadius = '3px';
+                cursor.style.zIndex = '10';
+                cursor.style.pointerEvents = 'none';
+                
+                bar.appendChild(cursor);
+            }
+        }
+
+        // Highlight regions on physical karyotype corresponding to coordinates visible in the current zoom window
+        function highlightKaryotypeInBox(xMin, xMax, yMin, yMax) {
+            if (activeMappingLevel === 'bins') {
+                const containers = document.querySelectorAll('.karyotype-highlights');
+                containers.forEach(container => container.innerHTML = '');
+                
+                const xArr = activeViewMode === 'global' ? umapData.global_x : umapData.local_x;
+                const yArr = activeViewMode === 'global' ? umapData.global_y : umapData.local_y;
+                
+                let totalVisible = 0;
+                const segmentsToRender = {};
+                chromosomes.forEach(c => segmentsToRender[c] = []);
+                
+                for (let i = 0; i < umapData.chrom.length; i++) {
+                    const chrom = umapData.chrom[i];
+                    
+                    if (activeViewMode === 'local' && chrom !== selectedChrom) continue;
+                    if (activeViewMode === 'global' && !selectedChroms.has(chrom)) continue;
+                    
+                    const x = xArr[i];
+                    const y = yArr[i];
+                    
+                    if (x >= xMin && x <= xMax && y >= yMin && y <= yMax) {
+                        totalVisible++;
+                        segmentsToRender[chrom].push({
+                            start: umapData.start[i],
+                            end: umapData.end[i],
+                            idx: i
+                        });
+                    }
+                }
+                
+                chromosomes.forEach(c => {
+                    const container = document.getElementById(`karyotype-highlights-${c}`);
+                    if (!container) return;
+                    
+                    const maxEnd = chromMaxLengths[c];
+                    if (!maxEnd) return;
+                    
+                    const list = segmentsToRender[c];
+                    list.forEach(seg => {
+                        const leftPercent = (seg.start / maxEnd) * 100;
+                        const widthPercent = Math.max(0.6, ((seg.end - seg.start) / maxEnd) * 100);
+                        
+                        const el = document.createElement('div');
+                        el.className = 'karyotype-highlight-segment';
+                        el.style.left = `${leftPercent}%`;
+                        el.style.width = `${widthPercent}%`;
+                        el.style.backgroundColor = chromColorPalette[c] || 'var(--accent-secondary)';
+                        el.title = `${c}:${seg.start.toLocaleString()}-${seg.end.toLocaleString()}`;
+                        
+                        el.onclick = (e) => {
+                            e.stopPropagation();
+                            inspectBin(seg.idx, true);
+                            highlightPoint(seg.idx);
+                        };
+                        
+                        container.appendChild(el);
+                    });
+                });
+                
+                document.getElementById('zoom-stat-text').innerHTML = `Zoomed Bins: <span class="highlight-val">${totalVisible.toLocaleString()}</span> / ${umapData.chrom.length.toLocaleString()}`;
+            } else if (activeMappingLevel === 'genes') {
+                if (!geneUmapData) return;
+                const containers = document.querySelectorAll('.karyotype-highlights');
+                containers.forEach(container => container.innerHTML = '');
+                
+                let totalVisible = 0;
+                const segmentsToRender = {};
+                chromosomes.forEach(c => segmentsToRender[c] = []);
+                
+                for (let i = 0; i < geneUmapData.symbol.length; i++) {
+                    const x = geneUmapData.x[i];
+                    const y = geneUmapData.y[i];
+                    if (x >= xMin && x <= xMax && y >= yMin && y <= yMax) {
+                        const chrom = geneUmapData.chrom[i];
+                        if (selectedChroms.has(chrom)) {
+                            totalVisible++;
+                            segmentsToRender[chrom].push({
+                                start: geneUmapData.start[i],
+                                end: geneUmapData.end[i],
+                                symbol: geneUmapData.symbol[i],
+                                idx: i
+                            });
+                        }
+                    }
+                }
+                
+                chromosomes.forEach(c => {
+                    const container = document.getElementById(`karyotype-highlights-${c}`);
+                    if (!container) return;
+                    
+                    const maxEnd = chromMaxLengths[c];
+                    if (!maxEnd) return;
+                    
+                    const list = segmentsToRender[c];
+                    list.forEach(seg => {
+                        const leftPercent = (seg.start / maxEnd) * 100;
+                        const widthPercent = Math.max(1.0, ((seg.end - seg.start) / maxEnd) * 100);
+                        
+                        const el = document.createElement('div');
+                        el.className = 'karyotype-highlight-segment';
+                        el.style.left = `${leftPercent}%`;
+                        el.style.width = `${widthPercent}%`;
+                        el.style.backgroundColor = chromColorPalette[c] || 'var(--accent-secondary)';
+                        el.title = `${seg.symbol} (${c}:${seg.start.toLocaleString()}-${seg.end.toLocaleString()})`;
+                        
+                        el.onclick = (e) => {
+                            e.stopPropagation();
+                            inspectGene(seg.idx, true);
+                            highlightPoint(seg.idx);
+                        };
+                        container.appendChild(el);
+                    });
+                });
+                
+                document.getElementById('zoom-stat-text').innerHTML = `Zoomed Genes: <span class="highlight-val">${totalVisible.toLocaleString()}</span> / ${geneUmapData.symbol.length.toLocaleString()}`;
+            } else if (activeMappingLevel === 'pathways') {
+                if (!pathwayUmapData) return;
+                const containers = document.querySelectorAll('.karyotype-highlights');
+                containers.forEach(container => container.innerHTML = '');
+                
+                let totalVisible = 0;
+                const segmentsToRender = {};
+                chromosomes.forEach(c => segmentsToRender[c] = []);
+                
+                const visiblePathwayIds = [];
+                for (let i = 0; i < pathwayUmapData.id.length; i++) {
+                    const x = pathwayUmapData.x[i];
+                    const y = pathwayUmapData.y[i];
+                    if (x >= xMin && x <= xMax && y >= yMin && y <= yMax) {
+                        visiblePathwayIds.push(pathwayUmapData.id[i].toUpperCase());
+                        totalVisible++;
+                    }
+                }
+                
+                const visibleGenes = new Set();
+                visiblePathwayIds.forEach(pId => {
+                    const gSet = pathwayToGenes[pId];
+                    if (gSet) {
+                        gSet.forEach(g => visibleGenes.add(g));
+                    }
+                });
+                
+                if (geneUmapData) {
+                    for (let i = 0; i < geneUmapData.symbol.length; i++) {
+                        const gene = geneUmapData.symbol[i];
+                        if (visibleGenes.has(gene.toUpperCase())) {
+                            const chrom = geneUmapData.chrom[i];
+                            if (segmentsToRender[chrom]) {
+                                segmentsToRender[chrom].push({
+                                    start: geneUmapData.start[i],
+                                    end: geneUmapData.end[i],
+                                    symbol: gene,
+                                    idx: i
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                chromosomes.forEach(c => {
+                    const container = document.getElementById(`karyotype-highlights-${c}`);
+                    if (!container) return;
+                    
+                    const maxEnd = chromMaxLengths[c];
+                    if (!maxEnd) return;
+                    
+                    const list = segmentsToRender[c];
+                    list.forEach(seg => {
+                        const leftPercent = (seg.start / maxEnd) * 100;
+                        const widthPercent = Math.max(1.0, ((seg.end - seg.start) / maxEnd) * 100);
+                        
+                        const el = document.createElement('div');
+                        el.className = 'karyotype-highlight-segment';
+                        el.style.left = `${leftPercent}%`;
+                        el.style.width = `${widthPercent}%`;
+                        el.style.backgroundColor = 'var(--accent-secondary)';
+                        el.title = `${seg.symbol} (Pathway Gen) (${c}:${seg.start.toLocaleString()}-${seg.end.toLocaleString()})`;
+                        
+                        el.onclick = (e) => {
+                            e.stopPropagation();
+                            document.getElementById('umap-level-select').value = 'genes';
+                            onMappingLevelChange(() => {
+                                const gIdx = geneUmapData.symbol.findIndex(s => s.toUpperCase() === seg.symbol.toUpperCase());
+                                if (gIdx !== -1) {
+                                    inspectGene(gIdx, true);
+                                    highlightPoint(gIdx);
+                                }
+                            });
+                        };
+                        container.appendChild(el);
+                    });
+                });
+                
+                document.getElementById('zoom-stat-text').innerHTML = `Zoomed Pathways: <span class="highlight-val">${totalVisible.toLocaleString()}</span> (lit up ${visibleGenes.size.toLocaleString()} physical genes)`;
+            }
+        }
+
+        // Reset highlights when zoom is reset
+        function resetKaryotypeHighlight() {
+            const containers = document.querySelectorAll('.karyotype-highlights');
+            containers.forEach(container => container.innerHTML = '');
+            
+            const oldCursor = document.getElementById('karyotype-hover-cursor');
+            if (oldCursor) oldCursor.remove();
+            
+            document.getElementById('zoom-stat-text').innerHTML = `Zoom UMAP to highlight corresponding physical regions`;
+        }
+
+        // Fetch overlapping genes for bin
+        function fetchGenesForBin(idx, chrom, start, end, callback) {
+            if (localAnnotations && localAnnotations.bin_genes && localAnnotations.bin_genes[idx] !== undefined) {
+                callback(localAnnotations.bin_genes[idx]);
+            } else {
+                console.warn(`No local annotations loaded for bin index ${idx}`);
+                callback([]);
+            }
+        }
+
+        // Fetch pathways and summaries for genes
+        function fetchPathwaysForGenes(genes, callback) {
+            if (!genes || genes.length === 0) {
+                callback([], {});
+                return;
+            }
+
+            const pathways = [];
+            const summaries = {};
+
+            if (localAnnotations && localAnnotations.gene_data) {
+                genes.forEach(g => {
+                    const upperG = g.toUpperCase();
+                    const data = localAnnotations.gene_data[upperG];
+                    if (data) {
+                        if (data.summary) {
+                            summaries[upperG] = data.summary;
+                        }
+                        if (data.pathways) {
+                            data.pathways.forEach(p => {
+                                pathways.push({
+                                    gene: upperG,
+                                    source: p.source,
+                                    id: p.id,
+                                    name: p.name
+                                });
+                            });
+                        }
+                    }
+                });
+            }
+            callback(pathways, summaries);
+        }
+
+        // Show gene details on clicking a gene badge
+        function showGeneDetails(gene) {
+            const summaryCard = document.getElementById('gene-summary-card');
+            const summaryName = document.getElementById('gene-summary-name');
+            const summaryText = document.getElementById('gene-summary-text');
+            
+            summaryCard.style.display = 'block';
+            summaryName.textContent = gene;
+            
+            const upperGene = gene.toUpperCase();
+            summaryText.textContent = activeGeneSummaries[upperGene] || 'No functional summary available for this gene.';
+            
+            // Filter pathways for this gene (case-insensitive)
+            const pathways = activeGenePathways.filter(p => p.gene.toUpperCase() === upperGene);
+            const listEl = document.getElementById('pathways-list');
+            listEl.innerHTML = '';
+            
+            if (pathways.length === 0) {
+                listEl.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.7rem; font-style: italic;">No direct KEGG/Reactome pathways mapped to this gene symbol.</span>';
+                return;
+            }
+            
+            pathways.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'pathway-item';
+                item.style.cursor = 'pointer';
+                item.title = "Click to highlight this pathway on UMAP";
+                
+                const isReact = p.source === 'Reactome';
+                    
+                item.innerHTML = `
+                    <div class="pathway-item-header">
+                        <span class="pathway-name">${p.name}</span>
+                        <span class="pathway-source-badge ${isReact ? 'reactome' : 'kegg'}">${p.source}</span>
+                    </div>
+                    <span class="pathway-id-span">${p.id}</span>
+                `;
+                
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    document.getElementById('highlight-mode-select').value = 'pathway';
+                    onHighlightModeSelectChange();
+                    document.getElementById('highlight-pathway-input').value = p.name;
+                    setHighlight('pathway', p.id);
+                };
+
+                listEl.appendChild(item);
+            });
+        }
+
+        // Populate Inspector Card
+        function inspectBin(idx, isPinned = false) {
+            if (idx === null || idx === undefined || !umapData) return;
+            
+            // If we have a pinned bin, and this is just a hover inspection (not a pin action), do not change the inspected bin!
+            if (pinnedIndex !== null && !isPinned) {
+                return;
+            }
+            
+            if (isPinned) {
+                pinnedIndex = idx;
+                const pinRow = document.getElementById('pin-status-row');
+                if (pinRow) {
+                    pinRow.style.display = 'flex';
+                }
+            }
+            
+            selectedIndex = idx;
+            
+            document.getElementById('inspector-placeholder').style.display = 'none';
+            document.getElementById('inspector-details').style.display = 'flex';
+            
+            // Automatically switch sidebar tab to Inspector on pin (click)
+            if (isPinned) {
+                switchSidebarTab('inspector');
+            }
+            
+            const chrom = umapData.chrom[idx];
+            const start = umapData.start[idx];
+            const end = umapData.end[idx];
+            const span = end - start;
+            
+            document.getElementById('inspect-chrom').textContent = chrom;
+            document.getElementById('inspect-chrom').style.color = chromColorPalette[chrom] || 'var(--accent-secondary)';
+            document.getElementById('inspect-start').textContent = start.toLocaleString();
+            document.getElementById('inspect-end').textContent = end.toLocaleString();
+            document.getElementById('inspect-span').textContent = `${(span/1000).toFixed(1)} KB (${span.toLocaleString()} bp)`;
+            
+            // Build linear neighborhood list (e.g. 3 bins before, 3 bins after in coordinate index)
+            const neighList = document.getElementById('inspect-neighborhood');
+            neighList.innerHTML = '';
+            
+            const numNeighbors = 3;
+            let neighbors = [];
+            
+            // Look backward
+            let count = 0;
+            for (let i = idx - 1; i >= 0; i--) {
+                if (umapData.chrom[i] === chrom) {
+                    neighbors.unshift(i);
+                    if (++count >= numNeighbors) break;
+                } else break;
+            }
+            
+            neighbors.push(idx);
+            
+            // Look forward
+            count = 0;
+            for (let i = idx + 1; i < umapData.chrom.length; i++) {
+                if (umapData.chrom[i] === chrom) {
+                    neighbors.push(i);
+                    if (++count >= numNeighbors) break;
+                } else break;
+            }
+            
+            neighbors.forEach(nIdx => {
+                const item = document.createElement('div');
+                item.className = `neighbor-item ${nIdx === idx ? 'current' : ''}`;
+                
+                const startCoord = umapData.start[nIdx];
+                const endCoord = umapData.end[nIdx];
+                
+                item.innerHTML = `
+                    <span>${(startCoord/1000000).toFixed(2)}M - ${(endCoord/1000000).toFixed(2)}M</span>
+                    <span>${nIdx === idx ? '🎯 target' : 'dist: ' + Math.abs(nIdx - idx)}</span>
+                `;
+                
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    inspectBin(nIdx, true);
+                    highlightPoint(nIdx);
+                };
+                
+                neighList.appendChild(item);
+            });
+
+            // --- FETCH OVERLAPPING GENES & BIOLOGICAL PATHWAYS ---
+            const geneContainer = document.getElementById('genes-badge-container');
+            geneContainer.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.7rem; font-style: italic;">Loading overlapping genes...</span>';
+            
+            const pathwayList = document.getElementById('pathways-list');
+            pathwayList.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.7rem; font-style: italic;">Waiting for gene list...</span>';
+            
+            document.getElementById('gene-summary-card').style.display = 'none';
+
+            fetchGenesForBin(idx, chrom, start, end, (genes) => {
+                if (genes.length === 0) {
+                    geneContainer.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.7rem; font-style: italic;">No overlapping RefSeq genes found in this 128KB region.</span>';
+                    pathwayList.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.7rem; font-style: italic;">No pathways.</span>';
+                    return;
+                }
+                
+                // Render gene badges
+                geneContainer.innerHTML = '';
+                genes.forEach(gene => {
+                    const badge = document.createElement('span');
+                    badge.className = 'gene-badge';
+                    badge.textContent = gene;
+                    badge.onclick = (e) => {
+                        e.stopPropagation();
+                        document.querySelectorAll('.gene-badge').forEach(b => b.classList.remove('active'));
+                        badge.classList.add('active');
+                        showGeneDetails(gene);
+
+                        // Highlight this gene on the plot
+                        document.getElementById('highlight-mode-select').value = 'gene';
+                        onHighlightModeSelectChange();
+                        document.getElementById('highlight-gene-input').value = gene;
+                        setHighlight('gene', gene);
+                    };
+                    geneContainer.appendChild(badge);
+                });
+                
+                // Fetch associated pathways
+                pathwayList.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.7rem; font-style: italic;">Loading associated pathways...</span>';
+                
+                fetchPathwaysForGenes(genes, (pathways, summaries) => {
+                    activeGeneSummaries = summaries;
+                    activeGenePathways = pathways;
+                    
+                    // Select first gene by default
+                    if (genes[0]) {
+                        const firstBadge = geneContainer.querySelector('.gene-badge');
+                        if (firstBadge) firstBadge.classList.add('active');
+                        showGeneDetails(genes[0]);
+                    }
+                });
+            });
+        }
+
+        // Populate Inspector Card for Gene UMAP Level
+        function inspectGene(idx, isPinned = false) {
+            if (idx === null || idx === undefined || !geneUmapData) return;
+            
+            if (pinnedIndex !== null && !isPinned) return;
+            
+            if (isPinned) {
+                pinnedIndex = idx;
+                const pinRow = document.getElementById('pin-status-row');
+                if (pinRow) pinRow.style.display = 'flex';
+                switchSidebarTab('inspector');
+            }
+            
+            selectedIndex = idx;
+            
+            document.getElementById('inspector-placeholder').style.display = 'none';
+            document.getElementById('inspector-details').style.display = 'flex';
+            
+            const gene = geneUmapData.symbol[idx];
+            const chrom = geneUmapData.chrom[idx];
+            const start = geneUmapData.start[idx];
+            const end = geneUmapData.end[idx];
+            const span = end - start;
+            
+            document.getElementById('inspect-chrom').textContent = chrom;
+            document.getElementById('inspect-chrom').style.color = chromColorPalette[chrom] || 'var(--accent-secondary)';
+            document.getElementById('inspect-start').textContent = start.toLocaleString();
+            document.getElementById('inspect-end').textContent = end.toLocaleString();
+            document.getElementById('inspect-span').textContent = `${(span/1000).toFixed(1)} KB (${span.toLocaleString()} bp)`;
+            
+            document.getElementById('inspect-neighborhood').innerHTML = '<span style="color: var(--text-secondary); font-size: 0.75rem; font-style: italic;">Not applicable in Gene View</span>';
+            
+            // Show single gene badge (active)
+            const geneContainer = document.getElementById('genes-badge-container');
+            geneContainer.innerHTML = '';
+            const badge = document.createElement('span');
+            badge.className = 'gene-badge active';
+            badge.textContent = gene;
+            badge.onclick = (e) => {
+                e.stopPropagation();
+                // Zoom & Highlight this gene on the plot
+                document.getElementById('highlight-mode-select').value = 'gene';
+                onHighlightModeSelectChange();
+                document.getElementById('highlight-gene-input').value = gene;
+                setHighlight('gene', gene);
+            };
+            geneContainer.appendChild(badge);
+            
+            // Fetch associated pathways
+            const pathwayList = document.getElementById('pathways-list');
+            pathwayList.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.75rem; font-style: italic;">Loading associated pathways...</span>';
+            
+            fetchPathwaysForGenes([gene], (pathways, summaries) => {
+                activeGeneSummaries = summaries;
+                activeGenePathways = pathways;
+                showGeneDetails(gene);
+            });
+        }
+
+        // Populate Inspector Card for Pathway UMAP Level
+        function inspectPathway(idx, isPinned = false) {
+            if (idx === null || idx === undefined || !pathwayUmapData) return;
+            
+            if (pinnedIndex !== null && !isPinned) return;
+            
+            if (isPinned) {
+                pinnedIndex = idx;
+                const pinRow = document.getElementById('pin-status-row');
+                if (pinRow) pinRow.style.display = 'flex';
+                switchSidebarTab('inspector');
+            }
+            
+            selectedIndex = idx;
+            
+            document.getElementById('inspector-placeholder').style.display = 'none';
+            document.getElementById('inspector-details').style.display = 'flex';
+            
+            const pId = pathwayUmapData.id[idx];
+            const pName = pathwayUmapData.name[idx];
+            const pSource = pathwayUmapData.source[idx];
+            
+            document.getElementById('inspect-chrom').textContent = 'N/A';
+            document.getElementById('inspect-chrom').style.color = 'var(--text-secondary)';
+            document.getElementById('inspect-start').textContent = 'Multi-chromosomal';
+            document.getElementById('inspect-end').textContent = 'N/A';
+            document.getElementById('inspect-span').textContent = 'N/A';
+            
+            document.getElementById('inspect-neighborhood').innerHTML = '<span style="color: var(--text-secondary); font-size: 0.75rem; font-style: italic;">Not applicable in Pathway View</span>';
+            
+            // Show all genes in this pathway as clickable badges
+            const geneContainer = document.getElementById('genes-badge-container');
+            geneContainer.innerHTML = '';
+            
+            const pKey = pId.toUpperCase();
+            const genes = Array.from(pathwayToGenes[pKey] || []);
+            
+            if (genes.length === 0) {
+                geneContainer.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.75rem; font-style: italic;">No mapped genes found.</span>';
+            } else {
+                genes.forEach(gene => {
+                    const badge = document.createElement('span');
+                    badge.className = 'gene-badge';
+                    badge.textContent = gene;
+                    badge.onclick = (e) => {
+                        e.stopPropagation();
+                        // Switch mapping level to genes and inspect this gene
+                        document.getElementById('umap-level-select').value = 'genes';
+                        onMappingLevelChange(() => {
+                            const gIdx = geneUmapData.symbol.findIndex(s => s.toUpperCase() === gene.toUpperCase());
+                            if (gIdx !== -1) {
+                                inspectGene(gIdx, true);
+                                highlightPoint(gIdx);
+                            }
+                        });
+                    };
+                    geneContainer.appendChild(badge);
+                });
+            }
+            
+            // Show pathways list with just this pathway
+            const pathwayList = document.getElementById('pathways-list');
+            pathwayList.innerHTML = '';
+            
+            const item = document.createElement('div');
+            item.className = 'pathway-item';
+            const isReact = pSource === 'Reactome';
+            item.innerHTML = `
+                <div class="pathway-item-header">
+                    <span class="pathway-name">${pName}</span>
+                    <span class="pathway-source-badge ${isReact ? 'reactome' : 'kegg'}">${pSource}</span>
+                </div>
+                <span class="pathway-id-span">${pId}</span>
+            `;
+            pathwayList.appendChild(item);
+            
+            // Clear gene details card
+            document.getElementById('gene-summary-card').style.display = 'none';
+        }
+
+        // Unpin currently selected bin
+        function unpinBin(event) {
+            if (event) event.stopPropagation();
+            pinnedIndex = null;
+            const pinRow = document.getElementById('pin-status-row');
+            if (pinRow) {
+                pinRow.style.display = 'none';
+            }
+        }
+
+        // Search and highlight range, gene, or pathway
+        function searchRegion() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
+            
+            const upperQuery = query.toUpperCase();
+            const cleaned = query.replace(/,/g, '').toLowerCase();
+            const chromMatch = cleaned.match(/(chr\d+|chrx|chry)/);
+            
+            if (chromMatch) {
+                // Coordinate search (only works for bins and genes)
+                const chrom = chromMatch[1];
+                let start = 0;
+                let end = Infinity;
+                
+                const coordPart = cleaned.split(':')[1];
+                if (coordPart) {
+                    const rangeParts = coordPart.split('-');
+                    if (rangeParts[0]) start = parseNum(rangeParts[0]);
+                    if (rangeParts[1]) end = parseNum(rangeParts[1]);
+                    else if (rangeParts[0] && !coordPart.includes('-')) {
+                        const point = parseNum(rangeParts[0]);
+                        start = Math.max(0, point - 1000000);
+                        end = point + 1000000;
+                    }
+                }
+                
+                if (activeMappingLevel === 'bins') {
+                    if (!umapData) return;
+                    let bestMatchIdx = -1;
+                    for (let i = 0; i < umapData.chrom.length; i++) {
+                        if (umapData.chrom[i].toLowerCase() === chrom) {
+                            if (umapData.end[i] >= start && umapData.start[i] <= end) {
+                                bestMatchIdx = i;
+                                break;
+                            }
+                        }
+                    }
+                    if (bestMatchIdx !== -1) {
+                        if (activeViewMode === 'local') {
+                            if (!selectedChroms.has(chrom) || selectedChroms.size !== 1) {
+                                selectOnlyChromosome(chrom);
+                            }
+                        }
+                        inspectBin(bestMatchIdx, true);
+                        highlightPoint(bestMatchIdx);
+                    } else {
+                        alert(`No genomic bin found matching "${query}".`);
+                    }
+                } else if (activeMappingLevel === 'genes') {
+                    if (!geneUmapData) return;
+                    let bestMatchIdx = -1;
+                    for (let i = 0; i < geneUmapData.chrom.length; i++) {
+                        if (geneUmapData.chrom[i].toLowerCase() === chrom) {
+                            if (geneUmapData.end[i] >= start && geneUmapData.start[i] <= end) {
+                                bestMatchIdx = i;
+                                break;
+                            }
+                        }
+                    }
+                    if (bestMatchIdx !== -1) {
+                        inspectGene(bestMatchIdx, true);
+                        highlightPoint(bestMatchIdx);
+                    } else {
+                        alert(`No gene found matching "${query}".`);
+                    }
+                } else {
+                    alert("Coordinate searches are not supported in Pathway UMAP mapping.");
+                }
+                return;
+            }
+            
+            // Search by gene symbol
+            if (genesList.includes(upperQuery)) {
+                if (activeMappingLevel === 'bins') {
+                    document.getElementById('highlight-mode-select').value = 'gene';
+                    onHighlightModeSelectChange();
+                    document.getElementById('highlight-gene-input').value = upperQuery;
+                    setHighlight('gene', upperQuery);
+                    
+                    const bins = geneToBins[upperQuery];
+                    if (bins && bins.length > 0) {
+                        inspectBin(bins[0], true);
+                        highlightPoint(bins[0]);
+                    }
+                } else if (activeMappingLevel === 'genes') {
+                    if (!geneUmapData) return;
+                    const idx = geneUmapData.symbol.findIndex(s => s.toUpperCase() === upperQuery);
+                    if (idx !== -1) {
+                        document.getElementById('highlight-mode-select').value = 'gene';
+                        onHighlightModeSelectChange();
+                        document.getElementById('highlight-gene-input').value = upperQuery;
+                        setHighlight('gene', upperQuery);
+                        
+                        inspectGene(idx, true);
+                        highlightPoint(idx);
+                    }
+                } else if (activeMappingLevel === 'pathways') {
+                    if (!pathwayUmapData) return;
+                    document.getElementById('highlight-mode-select').value = 'gene';
+                    onHighlightModeSelectChange();
+                    document.getElementById('highlight-gene-input').value = upperQuery;
+                    setHighlight('gene', upperQuery);
+                    
+                    const gData = localAnnotations.gene_data[upperQuery];
+                    if (gData && gData.pathways && gData.pathways[0]) {
+                        const pId = gData.pathways[0].id;
+                        const idx = pathwayUmapData.id.findIndex(id => id.toUpperCase() === pId.toUpperCase());
+                        if (idx !== -1) {
+                            inspectPathway(idx, true);
+                            highlightPoint(idx);
+                        }
+                    }
+                }
+                return;
+            }
+            
+            // Search by pathway
+            const pMatch = pathwaysList.find(p => p.id.toUpperCase() === upperQuery || p.name.toUpperCase() === upperQuery || p.name.toUpperCase().includes(upperQuery));
+            if (pMatch) {
+                const pId = pMatch.id;
+                const pName = pMatch.name;
+                
+                if (activeMappingLevel === 'bins') {
+                    document.getElementById('highlight-mode-select').value = 'pathway';
+                    onHighlightModeSelectChange();
+                    document.getElementById('highlight-pathway-input').value = pName;
+                    setHighlight('pathway', pId);
+                } else if (activeMappingLevel === 'genes') {
+                    document.getElementById('highlight-mode-select').value = 'pathway';
+                    onHighlightModeSelectChange();
+                    document.getElementById('highlight-pathway-input').value = pName;
+                    setHighlight('pathway', pId);
+                    
+                    const geneSet = pathwayToGenes[pId.toUpperCase()];
+                    if (geneSet && geneSet.size > 0) {
+                        const firstGene = Array.from(geneSet)[0];
+                        const idx = geneUmapData.symbol.findIndex(s => s.toUpperCase() === firstGene.toUpperCase());
+                        if (idx !== -1) {
+                            inspectGene(idx, true);
+                            highlightPoint(idx);
+                        }
+                    }
+                } else if (activeMappingLevel === 'pathways') {
+                    if (!pathwayUmapData) return;
+                    const idx = pathwayUmapData.id.findIndex(id => id.toUpperCase() === pId.toUpperCase());
+                    if (idx !== -1) {
+                        document.getElementById('highlight-mode-select').value = 'pathway';
+                        onHighlightModeSelectChange();
+                        document.getElementById('highlight-pathway-input').value = pName;
+                        setHighlight('pathway', pId);
+                        
+                        inspectPathway(idx, true);
+                        highlightPoint(idx);
+                    }
+                }
+                return;
+            }
+            
+            alert(`Query "${query}" not recognized. Search for coordinate range (e.g. chr3:10,000,000), gene symbol, or pathway name.`);
+        }
+
+        function parseNum(str) {
+            str = str.trim();
+            if (str.endsWith('m')) return parseFloat(str) * 1000000;
+            if (str.endsWith('k')) return parseFloat(str) * 1000;
+            return parseFloat(str);
+        }
+
+        // Highlight a single point on the plot and zoom to it
+        function highlightPoint(idx) {
+            if (idx === null || idx === undefined) return;
+            
+            let x = 0, y = 0;
+            if (activeMappingLevel === 'bins') {
+                if (!umapData) return;
+                x = activeViewMode === 'global' ? umapData.global_x[idx] : umapData.local_x[idx];
+                y = activeViewMode === 'global' ? umapData.global_y[idx] : umapData.local_y[idx];
+            } else if (activeMappingLevel === 'genes') {
+                if (!geneUmapData) return;
+                x = geneUmapData.x[idx];
+                y = geneUmapData.y[idx];
+            } else if (activeMappingLevel === 'pathways') {
+                if (!pathwayUmapData) return;
+                x = pathwayUmapData.x[idx];
+                y = pathwayUmapData.y[idx];
+            }
+            
+            const update = {
+                'xaxis.range': [x - 2, x + 2],
+                'yaxis.range': [y - 2, y + 2]
+            };
+            
+            Plotly.relayout('plotly-div', update);
+        }
+
+        // --- NEW SEARCH & HIGHLIGHT HELPER FUNCTIONS ---
+
+        function buildSearchIndexes() {
+            geneToBins = {};
+            pathwayToBins = {};
+            unannotatedBins = [];
+            pathwayToGenes = {};
+            const pathwaysMap = {};
+            const genesSet = new Set();
+            
+            if (!umapData) return;
+            
+            const nBins = umapData.chrom.length;
+            
+            for (let i = 0; i < nBins; i++) {
+                let hasGene = false;
+                let hasPathway = false;
+                
+                if (localAnnotations && localAnnotations.bin_genes && localAnnotations.bin_genes[i]) {
+                    const genes = localAnnotations.bin_genes[i];
+                    if (genes.length > 0) {
+                        hasGene = true;
+                        genes.forEach(gene => {
+                            const geneUpper = gene.toUpperCase();
+                            genesSet.add(geneUpper);
+                            if (!geneToBins[geneUpper]) {
+                                geneToBins[geneUpper] = [];
+                            }
+                            geneToBins[geneUpper].push(i);
+                            
+                            // Index pathways for this gene
+                            if (localAnnotations.gene_data && localAnnotations.gene_data[geneUpper]) {
+                                const gData = localAnnotations.gene_data[geneUpper];
+                                if (gData.pathways && gData.pathways.length > 0) {
+                                    hasPathway = true;
+                                    gData.pathways.forEach(p => {
+                                        const pId = p.id;
+                                        const pName = p.name;
+                                        const pSource = p.source;
+                                        
+                                        // Index by ID
+                                        const pIdUpper = pId.toUpperCase();
+                                        if (!pathwayToBins[pIdUpper]) {
+                                            pathwayToBins[pIdUpper] = [];
+                                        }
+                                        pathwayToBins[pIdUpper].push(i);
+                                        
+                                        // Index by Name
+                                        const pNameUpper = pName.toUpperCase();
+                                        if (!pathwayToBins[pNameUpper]) {
+                                            pathwayToBins[pNameUpper] = [];
+                                        }
+                                        pathwayToBins[pNameUpper].push(i);
+                                        
+                                        if (!pathwaysMap[pIdUpper]) {
+                                            pathwaysMap[pIdUpper] = {
+                                                id: pId,
+                                                name: pName,
+                                                source: pSource,
+                                                searchString: `${pId} ${pName}`.toUpperCase()
+                                            };
+                                        }
+                                        
+                                        // Map pathway to gene symbol (uppercase)
+                                        if (!pathwayToGenes[pIdUpper]) {
+                                            pathwayToGenes[pIdUpper] = new Set();
+                                        }
+                                        pathwayToGenes[pIdUpper].add(geneUpper);
+                                        
+                                        if (!pathwayToGenes[pNameUpper]) {
+                                            pathwayToGenes[pNameUpper] = new Set();
+                                        }
+                                        pathwayToGenes[pNameUpper].add(geneUpper);
+                                    });
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                if (!hasGene && !hasPathway) {
+                    unannotatedBins.push(i);
+                }
+            }
+            
+            genesList = Array.from(genesSet).sort();
+            pathwaysList = Object.values(pathwaysMap).sort((a, b) => a.name.localeCompare(b.name));
+            
+            console.log(`Search indexes built. Indexed ${genesList.length} genes, ${pathwaysList.length} pathways, and ${unannotatedBins.length} unannotated bins.`);
+        }
+
+        function getHighlightedIndices() {
+            if (activeHighlightType === 'gene' && activeHighlightValue) {
+                return geneToBins[activeHighlightValue.toUpperCase()] || [];
+            } else if (activeHighlightType === 'pathway' && activeHighlightValue) {
+                return pathwayToBins[activeHighlightValue.toUpperCase()] || [];
+            } else if (activeHighlightType === 'desert') {
+                return unannotatedBins;
+            }
+            return [];
+        }
+
+        function populateQuickSuggestions() {
+            // Find top genes (genes overlapping the most bins)
+            const topGenes = Object.entries(geneToBins)
+                .map(([gene, bins]) => ({ gene, count: bins.length }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 6);
+            
+            const quickGenesDiv = document.getElementById('quick-genes');
+            quickGenesDiv.innerHTML = '';
+            topGenes.forEach(tg => {
+                const btn = document.createElement('button');
+                btn.className = 'quick-tag';
+                btn.textContent = `${tg.gene} (${tg.count})`;
+                btn.onclick = () => {
+                    document.getElementById('highlight-gene-input').value = tg.gene;
+                    setHighlight('gene', tg.gene);
+                };
+                quickGenesDiv.appendChild(btn);
+            });
+            
+            // Find top pathways (pathways mapping to most bins)
+            // Filter keys to keep only Reactome/KEGG identifiers to avoid duplication by name
+            const topPathways = Object.entries(pathwayToBins)
+                .filter(([key]) => key.startsWith('HSA') || key.startsWith('R-HSA'))
+                .map(([key, bins]) => {
+                    const pObj = pathwaysList.find(p => p.id.toUpperCase() === key);
+                    return { key, bins, pObj };
+                })
+                .filter(x => x.pObj)
+                .map(x => ({
+                    id: x.pObj.id,
+                    name: x.pObj.name,
+                    count: x.bins.length
+                }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 4);
+            
+            const quickPathwaysDiv = document.getElementById('quick-pathways');
+            quickPathwaysDiv.innerHTML = '';
+            topPathways.forEach(tp => {
+                const btn = document.createElement('button');
+                btn.className = 'quick-tag';
+                const dispName = tp.name.length > 20 ? tp.name.slice(0, 18) + '..' : tp.name;
+                btn.textContent = `${dispName} (${tp.count})`;
+                btn.title = tp.name;
+                btn.onclick = () => {
+                    document.getElementById('highlight-pathway-input').value = tp.name;
+                    setHighlight('pathway', tp.id);
+                };
+                quickPathwaysDiv.appendChild(btn);
+            });
+        }
+
+        function filterGeneAutocomplete() {
+            const query = document.getElementById('highlight-gene-input').value.trim().toUpperCase();
+            const listEl = document.getElementById('gene-autocomplete-list');
+            listEl.innerHTML = '';
+            
+            if (query.length < 1) {
+                listEl.style.display = 'none';
+                return;
+            }
+            
+            const matches = genesList
+                .filter(g => g.includes(query))
+                .sort((a, b) => {
+                    const aStart = a.startsWith(query);
+                    const bStart = b.startsWith(query);
+                    if (aStart && !bStart) return -1;
+                    if (!aStart && bStart) return 1;
+                    return a.localeCompare(b);
+                })
+                .slice(0, 10);
+            
+            if (matches.length === 0) {
+                listEl.innerHTML = '<div class="autocomplete-item" style="color: var(--text-secondary); font-style: italic;">No matching genes found</div>';
+                listEl.style.display = 'block';
+                return;
+            }
+            
+            matches.forEach(g => {
+                const count = geneToBins[g].length;
+                const item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                item.innerHTML = `<span>${g}</span><span class="badge-count">${count} bins</span>`;
+                item.onclick = () => {
+                    document.getElementById('highlight-gene-input').value = g;
+                    listEl.style.display = 'none';
+                    setHighlight('gene', g);
+                };
+                listEl.appendChild(item);
+            });
+            listEl.style.display = 'block';
+        }
+
+        function filterPathwayAutocomplete() {
+            const query = document.getElementById('highlight-pathway-input').value.trim().toUpperCase();
+            const listEl = document.getElementById('pathway-autocomplete-list');
+            listEl.innerHTML = '';
+            
+            if (query.length < 1) {
+                listEl.style.display = 'none';
+                return;
+            }
+            
+            const matches = pathwaysList
+                .filter(p => p.searchString.includes(query))
+                .slice(0, 10);
+            
+            if (matches.length === 0) {
+                listEl.innerHTML = '<div class="autocomplete-item" style="color: var(--text-secondary); font-style: italic;">No matching pathways found</div>';
+                listEl.style.display = 'block';
+                return;
+            }
+            
+            matches.forEach(p => {
+                const key = p.id.toUpperCase();
+                const count = (pathwayToBins[key] || []).length;
+                const item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                
+                const dispName = p.name.length > 35 ? p.name.slice(0, 32) + '...' : p.name;
+                
+                item.innerHTML = `
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-weight: 600;">${dispName}</span>
+                        <span style="font-size: 0.6rem; color: var(--accent-secondary);">${p.id} (${p.source})</span>
+                    </div>
+                    <span class="badge-count">${count} bins</span>
+                `;
+                item.onclick = () => {
+                    document.getElementById('highlight-pathway-input').value = p.name;
+                    listEl.style.display = 'none';
+                    setHighlight('pathway', p.id);
+                };
+                listEl.appendChild(item);
+            });
+            listEl.style.display = 'block';
+        }
+
+        function onHighlightModeSelectChange() {
+            const mode = document.getElementById('highlight-mode-select').value;
+            
+            document.getElementById('highlight-gene-container').style.display = mode === 'gene' ? 'block' : 'none';
+            document.getElementById('highlight-pathway-container').style.display = mode === 'pathway' ? 'block' : 'none';
+            document.getElementById('highlight-desert-container').style.display = mode === 'desert' ? 'block' : 'none';
+            
+            if (mode === 'none') {
+                clearHighlight();
+            } else if (mode === 'desert') {
+                setHighlight('desert', 'desert');
+            } else {
+                // Clear active highlight when switching modes
+                activeHighlightType = 'none';
+                activeHighlightValue = '';
+                updateClearHighlightButton();
+                renderPlot();
+                resetKaryotypeHighlight();
+            }
+        }
+
+        function setHighlight(type, value) {
+            activeHighlightType = type;
+            activeHighlightValue = value;
+            
+            updateQuickTagsActiveState(type, value);
+            updateClearHighlightButton();
+            
+            if (type === 'desert') {
+                const count = unannotatedBins.length;
+                const total = umapData.chrom.length;
+                const pct = ((count / total) * 100).toFixed(1);
+                document.getElementById('desert-stats-text').textContent = `Desert Bins: ${count.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
+            }
+            
+            renderPlot();
+            updateKaryotypeWithHighlight();
+        }
+
+        function clearHighlight() {
+            activeHighlightType = 'none';
+            activeHighlightValue = '';
+            
+            document.getElementById('highlight-mode-select').value = 'none';
+            document.getElementById('highlight-gene-container').style.display = 'none';
+            document.getElementById('highlight-pathway-container').style.display = 'none';
+            document.getElementById('highlight-desert-container').style.display = 'none';
+            
+            document.getElementById('highlight-gene-input').value = '';
+            document.getElementById('highlight-pathway-input').value = '';
+            
+            updateQuickTagsActiveState('none', '');
+            updateClearHighlightButton();
+            
+            renderPlot();
+            resetKaryotypeHighlight();
+        }
+
+        function updateClearHighlightButton() {
+            const btn = document.getElementById('clear-highlight-btn');
+            if (activeHighlightType !== 'none') {
+                btn.style.display = 'inline-block';
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+
+        function updateQuickTagsActiveState(type, value) {
+            // For genes
+            const geneTags = document.querySelectorAll('#quick-genes .quick-tag');
+            geneTags.forEach(tag => {
+                const geneName = tag.textContent.split(' ')[0];
+                if (type === 'gene' && geneName.toUpperCase() === value.toUpperCase()) {
+                    tag.classList.add('active');
+                } else {
+                    tag.classList.remove('active');
+                }
+            });
+            
+            // For pathways
+            const pathwayTags = document.querySelectorAll('#quick-pathways .quick-tag');
+            pathwayTags.forEach(tag => {
+                const pObj = pathwaysList.find(p => p.id === value || p.name === value);
+                if (type === 'pathway' && pObj && (tag.title === pObj.name || tag.textContent.startsWith(pObj.name.slice(0, 10)))) {
+                    tag.classList.add('active');
+                } else {
+                    tag.classList.remove('active');
+                }
+            });
+        }
+
+        function getHighlightedGeneIndices() {
+            if (!geneUmapData) return [];
+            
+            const nGenes = geneUmapData.symbol.length;
+            const highlightIndices = [];
+            
+            if (activeHighlightType === 'gene' && activeHighlightValue) {
+                const target = activeHighlightValue.toUpperCase();
+                for (let i = 0; i < nGenes; i++) {
+                    if (geneUmapData.symbol[i].toUpperCase() === target) {
+                        highlightIndices.push(i);
+                    }
+                }
+            } else if (activeHighlightType === 'pathway' && activeHighlightValue) {
+                const pKey = activeHighlightValue.toUpperCase();
+                const geneSet = pathwayToGenes[pKey];
+                if (geneSet) {
+                    for (let i = 0; i < nGenes; i++) {
+                        if (geneSet.has(geneUmapData.symbol[i].toUpperCase())) {
+                            highlightIndices.push(i);
+                        }
+                    }
+                }
+            }
+            return highlightIndices;
+        }
+
+        function getHighlightedPathwayIndices() {
+            if (!pathwayUmapData) return [];
+            
+            const nPathways = pathwayUmapData.id.length;
+            const highlightIndices = [];
+            
+            if (activeHighlightType === 'pathway' && activeHighlightValue) {
+                const target = activeHighlightValue.toUpperCase();
+                for (let i = 0; i < nPathways; i++) {
+                    if (pathwayUmapData.id[i].toUpperCase() === target || pathwayUmapData.name[i].toUpperCase() === target) {
+                        highlightIndices.push(i);
+                    }
+                }
+            } else if (activeHighlightType === 'gene' && activeHighlightValue) {
+                const gKey = activeHighlightValue.toUpperCase();
+                const gData = localAnnotations.gene_data[gKey];
+                if (gData && gData.pathways) {
+                    const pathwaySet = new Set(gData.pathways.map(p => p.id.toUpperCase()));
+                    for (let i = 0; i < nPathways; i++) {
+                        if (pathwaySet.has(pathwayUmapData.id[i].toUpperCase())) {
+                            highlightIndices.push(i);
+                        }
+                    }
+                }
+            }
+            return highlightIndices;
+        }
+
+        function updateKaryotypeWithHighlight() {
+            const containers = document.querySelectorAll('.karyotype-highlights');
+            containers.forEach(container => container.innerHTML = '');
+            
+            let segmentsToRender = {};
+            chromosomes.forEach(c => segmentsToRender[c] = []);
+            
+            let totalHighlightCount = 0;
+            
+            if (activeMappingLevel === 'bins') {
+                const indices = getHighlightedIndices();
+                if (indices.length === 0) {
+                    document.getElementById('zoom-stat-text').innerHTML = `Zoom UMAP to highlight corresponding physical regions`;
+                    return;
+                }
+                totalHighlightCount = indices.length;
+                indices.forEach(idx => {
+                    const chrom = umapData.chrom[idx];
+                    if (segmentsToRender[chrom]) {
+                        segmentsToRender[chrom].push({
+                            start: umapData.start[idx],
+                            end: umapData.end[idx],
+                            idx: idx,
+                            type: 'bins'
+                        });
+                    }
+                });
+            } else if (activeMappingLevel === 'genes') {
+                const indices = getHighlightedGeneIndices();
+                if (indices.length === 0) {
+                    document.getElementById('zoom-stat-text').innerHTML = `Zoom UMAP to highlight corresponding physical regions`;
+                    return;
+                }
+                totalHighlightCount = indices.length;
+                indices.forEach(idx => {
+                    const chrom = geneUmapData.chrom[idx];
+                    if (segmentsToRender[chrom]) {
+                        segmentsToRender[chrom].push({
+                            start: geneUmapData.start[idx],
+                            end: geneUmapData.end[idx],
+                            idx: idx,
+                            type: 'genes',
+                            symbol: geneUmapData.symbol[idx]
+                        });
+                    }
+                });
+            } else if (activeMappingLevel === 'pathways') {
+                const indices = getHighlightedPathwayIndices();
+                if (indices.length === 0) {
+                    document.getElementById('zoom-stat-text').innerHTML = `Zoom UMAP to highlight corresponding physical regions`;
+                    return;
+                }
+                totalHighlightCount = indices.length;
+                
+                // Find all genes for these pathways
+                const visibleGenes = new Set();
+                indices.forEach(idx => {
+                    const pId = pathwayUmapData.id[idx].toUpperCase();
+                    const gSet = pathwayToGenes[pId];
+                    if (gSet) gSet.forEach(g => visibleGenes.add(g));
+                });
+                
+                if (geneUmapData) {
+                    for (let i = 0; i < geneUmapData.symbol.length; i++) {
+                        const gene = geneUmapData.symbol[i];
+                        if (visibleGenes.has(gene.toUpperCase())) {
+                            const chrom = geneUmapData.chrom[i];
+                            if (segmentsToRender[chrom]) {
+                                segmentsToRender[chrom].push({
+                                    start: geneUmapData.start[i],
+                                    end: geneUmapData.end[i],
+                                    idx: i,
+                                    type: 'genes',
+                                    symbol: gene
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            
+            chromosomes.forEach(c => {
+                const container = document.getElementById(`karyotype-highlights-${c}`);
+                if (!container) return;
+                
+                const maxEnd = chromMaxLengths[c];
+                if (!maxEnd) return;
+                
+                const list = segmentsToRender[c];
+                list.forEach(seg => {
+                    const leftPercent = (seg.start / maxEnd) * 100;
+                    const widthPercent = Math.max(1.0, ((seg.end - seg.start) / maxEnd) * 100);
+                    
+                    const el = document.createElement('div');
+                    el.className = 'karyotype-highlight-segment';
+                    el.style.left = `${leftPercent}%`;
+                    el.style.width = `${widthPercent}%`;
+                    el.style.backgroundColor = 'var(--accent-secondary)';
+                    el.style.boxShadow = '0 0 6px var(--accent-secondary)';
+                    
+                    if (seg.type === 'bins') {
+                        el.title = `${c}:${seg.start.toLocaleString()}-${seg.end.toLocaleString()}`;
+                        el.onclick = (e) => {
+                            e.stopPropagation();
+                            inspectBin(seg.idx, true);
+                            highlightPoint(seg.idx);
+                        };
+                    } else {
+                        el.title = `${seg.symbol} (${c}:${seg.start.toLocaleString()}-${seg.end.toLocaleString()})`;
+                        el.onclick = (e) => {
+                            e.stopPropagation();
+                            inspectGene(seg.idx, true);
+                            highlightPoint(seg.idx);
+                        };
+                    }
+                    
+                    container.appendChild(el);
+                });
+            });
+            
+            const totalItems = activeMappingLevel === 'bins' ? umapData.chrom.length :
+                               activeMappingLevel === 'genes' ? geneUmapData.symbol.length :
+                               pathwayUmapData.id.length;
+            const pct = ((totalHighlightCount / totalItems) * 100).toFixed(2);
+            document.getElementById('zoom-stat-text').innerHTML = `Highlight: <span class="highlight-val">${totalHighlightCount.toLocaleString()}</span> / ${totalItems.toLocaleString()} items (${pct}%)`;
+        }
+
+        // Close autocomplete lists when clicking outside
+        document.addEventListener('click', (e) => {
+            const geneList = document.getElementById('gene-autocomplete-list');
+            const geneInput = document.getElementById('highlight-gene-input');
+            if (geneList && !geneList.contains(e.target) && e.target !== geneInput) {
+                geneList.style.display = 'none';
+            }
+            
+            const pathwayList = document.getElementById('pathway-autocomplete-list');
+            const pathwayInput = document.getElementById('highlight-pathway-input');
+            if (pathwayList && !pathwayList.contains(e.target) && e.target !== pathwayInput) {
+                pathwayList.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
