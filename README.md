@@ -69,30 +69,6 @@ These are only needed to **re-run** the UMAP computation pipeline. The web app w
 
 ---
 
-## 🚀 Deployment on GitHub Pages
-
-This repository is configured to be deployed directly via **GitHub Pages** from the root (`/`) of the `main` branch.
-
-### Setup Steps
-
-1. **Push to GitHub:**
-   ```bash
-   git remote add origin https://github.com/lagosproject/DNAEmbeddings.git
-   git push -u origin main
-   ```
-
-2. **Enable GitHub Pages:**
-   - Go to **Settings → Pages** in your repository
-   - Under *Source*, select **Deploy from a branch**
-   - Choose `main` branch and `/` (root) directory
-   - Click **Save**
-
-3. **Access your site:**
-   ```
-   https://lagosproject.github.io/DNAEmbeddings/
-   ```
-
----
 
 ## 🛠️ Local Development
 
