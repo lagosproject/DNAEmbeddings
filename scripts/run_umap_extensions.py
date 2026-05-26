@@ -7,6 +7,9 @@ import glob
 import os
 import re
 
+# Ensure we work from project root (one level up from scripts/)
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
 def natural_key(string):
     return [int(s) if s.isdigit() else s.lower() for s in re.split(r'(\d+)', string)]
 

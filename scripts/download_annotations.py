@@ -5,6 +5,9 @@ import urllib.request
 import pandas as pd
 import requests
 
+# Ensure we work from project root (one level up from scripts/)
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
 def main():
     print("=" * 60)
     print("ALPHAGenome UMAP Explorer Annotation Downloader")

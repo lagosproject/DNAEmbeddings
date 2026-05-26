@@ -1,6 +1,6 @@
 # ALPHAGenome DNA Embeddings — UMAP Explorer
 
-[![GitHub Pages](https://img.shields.io/badge/🧬_Live_Demo-GitHub_Pages-6366f1?style=for-the-badge)](https://YOUR_USERNAME.github.io/DNAEmbeddings/)
+[![GitHub Pages](https://img.shields.io/badge/🧬_Live_Demo-GitHub_Pages-6366f1?style=for-the-badge)](https://lagosproject.github.io/DNAEmbeddings/)
 
 An interactive visualization of latent relationships between genomic regions, built from **ALPHAGenome** DNA foundation model embeddings.
 
@@ -12,9 +12,7 @@ An interactive visualization of latent relationships between genomic regions, bu
 
 ## 🌐 Live Demo
 
-**→ [Open the UMAP Explorer](https://YOUR_USERNAME.github.io/DNAEmbeddings/)**
-
-> Replace `YOUR_USERNAME` with your actual GitHub username after deploying.
+**→ [Open the UMAP Explorer](https://lagosproject.github.io/DNAEmbeddings/)**
 
 The web app runs entirely in the browser — no server needed. All pre-computed UMAP coordinates and gene/pathway annotations are bundled as static JSON files.
 
@@ -42,17 +40,19 @@ The human genome (hg38 / GRCh38) is divided into **~12,400 non-overlapping 131 K
 
 ```
 DNAEmbeddings/
-├── index.html                    # Main web application (single-file, self-contained)
-├── res/                          # Pre-computed data (JSON files tracked in git)
-│   ├── umap_results.json         # Bin-level UMAP coordinates (global + per-chromosome)
-│   ├── gene_umap_results.json    # Gene-level UMAP coordinates
-│   ├── pathway_umap_results.json # Pathway-level UMAP coordinates
-│   └── gene_annotations.json     # Gene/pathway annotations (RefSeq + MyGene.info)
-├── run_umap.py                   # Script to compute UMAP from raw embeddings
-├── run_umap_extensions.py        # Script to compute gene & pathway UMAP projections
-├── download_annotations.py       # Script to download gene/pathway annotations
-├── serve.py                      # Local development server
-└── rethrow.sh                    # Re-run pipeline script
+├── index.html                        # Main web application (single-file, self-contained)
+├── res/                              # Pre-computed data (JSON files tracked in git)
+│   ├── umap_results.json             # Bin-level UMAP coordinates (global + per-chromosome)
+│   ├── gene_umap_results.json        # Gene-level UMAP coordinates
+│   ├── pathway_umap_results.json     # Pathway-level UMAP coordinates
+│   └── gene_annotations.json         # Gene/pathway annotations (RefSeq + MyGene.info)
+├── scripts/                          # Pipeline and utility scripts
+│   ├── run_umap.py                   # Compute UMAP from raw embeddings
+│   ├── run_umap_extensions.py        # Compute gene & pathway UMAP projections
+│   ├── download_annotations.py       # Download gene/pathway annotations
+│   ├── serve.py                      # Local development server
+│   └── rethrow.sh                    # Re-run full pipeline
+└── docs/                             # Documentation assets
 ```
 
 ### Files NOT in this repo (too large for GitHub)
@@ -77,7 +77,7 @@ This repository is configured to be deployed directly via **GitHub Pages** from 
 
 1. **Push to GitHub:**
    ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/DNAEmbeddings.git
+   git remote add origin https://github.com/lagosproject/DNAEmbeddings.git
    git push -u origin main
    ```
 
@@ -89,7 +89,7 @@ This repository is configured to be deployed directly via **GitHub Pages** from 
 
 3. **Access your site:**
    ```
-   https://YOUR_USERNAME.github.io/DNAEmbeddings/
+   https://lagosproject.github.io/DNAEmbeddings/
    ```
 
 ---
@@ -99,7 +99,7 @@ This repository is configured to be deployed directly via **GitHub Pages** from 
 ### Quick Start (just the viewer)
 
 ```bash
-python3 serve.py
+python3 scripts/serve.py
 ```
 
 This opens the interactive explorer at `http://localhost:8000/index.html`.
@@ -110,16 +110,19 @@ If you have the raw `.npy` embedding files:
 
 ```bash
 # 1. Run UMAP dimensionality reduction
-python3 run_umap.py
+python3 scripts/run_umap.py
 
 # 2. Download gene/pathway annotations
-python3 download_annotations.py
+python3 scripts/download_annotations.py
 
 # 3. Compute gene & pathway UMAP projections
-python3 run_umap_extensions.py
+python3 scripts/run_umap_extensions.py
 
 # 4. Launch the web viewer
-python3 serve.py
+python3 scripts/serve.py
+
+# Or run the full pipeline at once:
+bash scripts/rethrow.sh
 ```
 
 #### Python dependencies:

@@ -6,6 +6,9 @@ import glob
 import os
 import re
 
+# Ensure we work from project root (one level up from scripts/)
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
 def natural_key(string):
     """Key function for natural sorting of alphanumeric strings (e.g. chr1, chr2, chr10)."""
     return [int(s) if s.isdigit() else s.lower() for s in re.split(r'(\d+)', string)]

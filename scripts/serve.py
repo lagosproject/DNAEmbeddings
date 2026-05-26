@@ -5,6 +5,10 @@ import webbrowser
 import threading
 import time
 import sys
+import os
+
+# Serve from the project root (one level up from scripts/)
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 def find_free_port(start_port=8000):
     port = start_port
