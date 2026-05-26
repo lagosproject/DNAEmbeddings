@@ -1328,8 +1328,8 @@
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         What You Are Looking At
                     </h3>
-                    <p>Each dot in this scatter plot represents a <strong style="color:#e5e7eb">genomic region</strong> — a stretch of human DNA — positioned in a 2D "map" by how <em>functionally similar</em> its sequence is to other regions. Dots that end up close together in this map have DNA sequences that the AI model considers biologically alike, even if they are physically located on completely different chromosomes.</p>
-                    <p>This 2D map was created with <strong style="color:#e5e7eb">UMAP</strong> (Uniform Manifold Approximation and Projection), a technique that compresses thousands of dimensions of information down to just two axes so you can visualize it. The axes themselves (UMAP 1, UMAP 2) have no direct biological meaning — only the <em>relative distances and clusters</em> between points matter.</p>
+                    <p id="modal-desc-p1"></p>
+                    <p id="modal-desc-p2"></p>
                 </div>
 
                 <!-- Configuration -->
@@ -4104,11 +4104,28 @@
         });
 
         // About modal
+        const modalDescriptions = {
+            bins: {
+                p1: `Each dot represents a <strong style="color:#e5e7eb">genomic bin</strong> — a 131 KB stretch of human DNA — positioned in a 2D map by how <em>functionally similar</em> its sequence is to other regions. Dots that are close together have DNA sequences the AI model considers biologically alike, even if they sit on completely different chromosomes.`,
+                p2: `Color encodes chromosome identity (discrete mode) or physical position along the chromosome (continuous mode). The axes (UMAP 1, UMAP 2) have no direct biological meaning — only the <em>relative distances and clusters</em> between points matter.`
+            },
+            genes: {
+                p1: `Each dot represents an <strong style="color:#e5e7eb">individual gene</strong>. Its position is computed as the average embedding of all 131 KB bins that overlap that gene's coordinates. Genes that cluster together tend to share similar regulatory context or sequence environment in the AI's learned representation.`,
+                p2: `This view lets you explore whether functionally related genes — such as members of the same pathway — also cluster in latent space. Hover or click any dot to see the gene symbol, chromosomal coordinates, and associated biological pathways.`
+            },
+            pathways: {
+                p1: `Each dot represents a <strong style="color:#e5e7eb">biological pathway</strong> (KEGG or Reactome). Its position is the average of the gene-level embeddings of all its member genes. Pathways that cluster together share genes with similar genomic sequence context in the AI model's latent space.`,
+                p2: `This is the most abstract view: it collapses all gene-level variation into a single point per pathway. Use it to explore whether functionally related pathways — such as immune signaling or cell cycle control — occupy distinct or overlapping regions. Color distinguishes KEGG (green) from Reactome (orange) pathways.`
+            }
+        };
+
         function openAboutModal() {
-            // Sync the bin count from the live data if available
+            const desc = modalDescriptions[activeMappingLevel] || modalDescriptions.bins;
+            document.getElementById('modal-desc-p1').innerHTML = desc.p1;
+            document.getElementById('modal-desc-p2').innerHTML = desc.p2;
+
             if (umapData) {
-                const count = umapData.chrom.length.toLocaleString();
-                document.getElementById('modal-stat-bins').textContent = count;
+                document.getElementById('modal-stat-bins').textContent = umapData.chrom.length.toLocaleString();
                 document.getElementById('modal-bins-count').textContent = '~' + umapData.chrom.length.toLocaleString();
             }
             document.getElementById('about-modal').classList.add('open');
