@@ -1545,6 +1545,7 @@
                             <option value="gene">Overlapping Gene</option>
                             <option value="pathway">Biological Pathway (KEGG/Reactome)</option>
                             <option value="desert">Unannotated Deserts (No genes/pathways)</option>
+                            <option value="centromere">Centromeric Bins</option>
                         </select>
                     </div>
                     
@@ -1582,6 +1583,21 @@
                                 Highlights genomic regions with no overlapping RefSeq genes and no mapped biological pathways.
                             </div>
                             <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-secondary);" id="desert-stats-text">
+                                Loading stats...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="highlight-centromere-container" style="display: none;" class="control-group">
+                        <div class="info-card" style="background: rgba(139, 92, 246, 0.05); border-color: rgba(139, 92, 246, 0.25);">
+                            <div style="font-weight: 600; color: #a78bfa; font-size: 0.75rem; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <span>Centromeric Bins</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.3;">
+                                Highlights bins that overlap the centromere region of each chromosome (hg38 coordinates). Centromeres are gene-poor, repeat-rich regions essential for chromosome segregation.
+                            </div>
+                            <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.7rem; color: #a78bfa;" id="centromere-stats-text">
                                 Loading stats...
                             </div>
                         </div>
@@ -1772,17 +1788,33 @@
 
         // Centromere coordinates mapping (hg38 / GRCh38)
         const centromereCoords = {
-            'chr1': [121500000, 128900000],
-            'chr2': [90500000, 96800000],
-            'chr3': [87900000, 93900000],
-            'chr4': [48200000, 52700000],
-            'chr5': [46100000, 50700000],
-            'chr6': [58500000, 62500000],
-            'chr7': [58000000, 61800000],
-            'chr8': [43200000, 47200000],
-            'chr9': [42200000, 45500000],
-            'chr10': [38900000, 42100000]
+            'chr1':  [121500000, 128900000],
+            'chr2':  [90500000,  96800000],
+            'chr3':  [87900000,  93900000],
+            'chr4':  [48200000,  52700000],
+            'chr5':  [46100000,  50700000],
+            'chr6':  [58500000,  62500000],
+            'chr7':  [58000000,  61800000],
+            'chr8':  [43200000,  47200000],
+            'chr9':  [42200000,  45500000],
+            'chr10': [38900000,  42100000],
+            'chr11': [51600000,  55700000],
+            'chr12': [33300000,  37100000],
+            'chr13': [16900000,  32400000],
+            'chr14': [16100000,  32400000],
+            'chr15': [17700000,  30400000],
+            'chr16': [35300000,  38400000],
+            'chr17': [22200000,  27600000],
+            'chr18': [15400000,  24300000],
+            'chr19': [24400000,  28200000],
+            'chr20': [25600000,  30000000],
+            'chr21': [10900000,  13400000],
+            'chr22': [12200000,  18500000],
+            'chrX':  [60600000,  65400000],
+            'chrY':  [10300000,  10400000]
         };
+
+        let centromereBins = [];
 
         // State (Local Pre-downloaded File)
         let activeGeneSummaries = {};
@@ -2311,7 +2343,8 @@
                     },
                     hoverinfo: 'none',
                     name: activeHighlightType === 'gene' ? `Gene: ${activeHighlightValue}` :
-                          activeHighlightType === 'pathway' ? `Pathway: ${activeHighlightValue}` : 'Unannotated'
+                          activeHighlightType === 'pathway' ? `Pathway: ${activeHighlightValue}` :
+                          activeHighlightType === 'centromere' ? 'Centromeric' : 'Unannotated'
                 });
 
             } else {
@@ -3579,6 +3612,7 @@
             geneToBins = {};
             pathwayToBins = {};
             unannotatedBins = [];
+            centromereBins = [];
             pathwayToGenes = {};
             const pathwaysMap = {};
             const genesSet = new Set();
@@ -3660,8 +3694,21 @@
             
             genesList = Array.from(genesSet).sort();
             pathwaysList = Object.values(pathwaysMap).sort((a, b) => a.name.localeCompare(b.name));
-            
-            console.log(`Search indexes built. Indexed ${genesList.length} genes, ${pathwaysList.length} pathways, and ${unannotatedBins.length} unannotated bins.`);
+
+            // Build centromere bin index
+            for (let i = 0; i < nBins; i++) {
+                const chrom = umapData.chrom[i];
+                const cenCoords = centromereCoords[chrom];
+                if (!cenCoords) continue;
+                const binStart = umapData.start[i];
+                const binEnd = umapData.end[i];
+                // Include bin if it overlaps the centromere region
+                if (binStart < cenCoords[1] && binEnd > cenCoords[0]) {
+                    centromereBins.push(i);
+                }
+            }
+
+            console.log(`Search indexes built. Indexed ${genesList.length} genes, ${pathwaysList.length} pathways, ${unannotatedBins.length} unannotated bins, and ${centromereBins.length} centromeric bins.`);
         }
 
         function getHighlightedIndices() {
@@ -3671,6 +3718,8 @@
                 return pathwayToBins[activeHighlightValue.toUpperCase()] || [];
             } else if (activeHighlightType === 'desert') {
                 return unannotatedBins;
+            } else if (activeHighlightType === 'centromere') {
+                return centromereBins;
             }
             return [];
         }
@@ -3817,15 +3866,18 @@
 
         function onHighlightModeSelectChange() {
             const mode = document.getElementById('highlight-mode-select').value;
-            
+
             document.getElementById('highlight-gene-container').style.display = mode === 'gene' ? 'block' : 'none';
             document.getElementById('highlight-pathway-container').style.display = mode === 'pathway' ? 'block' : 'none';
             document.getElementById('highlight-desert-container').style.display = mode === 'desert' ? 'block' : 'none';
-            
+            document.getElementById('highlight-centromere-container').style.display = mode === 'centromere' ? 'block' : 'none';
+
             if (mode === 'none') {
                 clearHighlight();
             } else if (mode === 'desert') {
                 setHighlight('desert', 'desert');
+            } else if (mode === 'centromere') {
+                setHighlight('centromere', 'centromere');
             } else {
                 // Clear active highlight when switching modes
                 activeHighlightType = 'none';
@@ -3848,6 +3900,11 @@
                 const total = umapData.chrom.length;
                 const pct = ((count / total) * 100).toFixed(1);
                 document.getElementById('desert-stats-text').textContent = `Desert Bins: ${count.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
+            } else if (type === 'centromere') {
+                const count = centromereBins.length;
+                const total = umapData.chrom.length;
+                const pct = ((count / total) * 100).toFixed(1);
+                document.getElementById('centromere-stats-text').textContent = `Centromeric Bins: ${count.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
             }
             
             renderPlot();
@@ -3862,7 +3919,8 @@
             document.getElementById('highlight-gene-container').style.display = 'none';
             document.getElementById('highlight-pathway-container').style.display = 'none';
             document.getElementById('highlight-desert-container').style.display = 'none';
-            
+            document.getElementById('highlight-centromere-container').style.display = 'none';
+
             document.getElementById('highlight-gene-input').value = '';
             document.getElementById('highlight-pathway-input').value = '';
             
