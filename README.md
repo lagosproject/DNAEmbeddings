@@ -46,7 +46,10 @@ DNAEmbeddings/
 │   ├── gene_umap_results.json        # Gene-level UMAP coordinates
 │   ├── pathway_umap_results.json     # Pathway-level UMAP coordinates
 │   └── gene_annotations.json         # Gene/pathway annotations (RefSeq + MyGene.info)
+├── notebooks/
+│   └── generate_embeddings.ipynb     # Colab notebook: run AlphaGenome on hg38 → produces chr*_embeddings.npy
 ├── scripts/                          # Pipeline and utility scripts
+│   ├── download_embeddings.py        # Download pre-computed embeddings from HuggingFace
 │   ├── run_umap.py                   # Compute UMAP from raw embeddings
 │   ├── run_umap_extensions.py        # Compute gene & pathway UMAP projections
 │   ├── download_annotations.py       # Download gene/pathway annotations
@@ -57,7 +60,7 @@ DNAEmbeddings/
 
 ### Files NOT in this repo (too large for GitHub)
 
-The following files are generated locally and excluded via `.gitignore`:
+The raw embeddings live on HuggingFace: **[lagosproject/ALPHAGenome-Embeddings](https://huggingface.co/datasets/lagosproject/ALPHAGenome-Embeddings)**
 
 | File pattern | Size | Purpose |
 |---|---|---|
@@ -65,7 +68,7 @@ The following files are generated locally and excluded via `.gitignore`:
 | `res/chr*_metadata.csv` | ~0.5 MB total | Bin coordinate metadata (chrom, start, end) |
 | `res/refGene.txt.gz` | ~8 MB | UCSC RefSeq gene database cache |
 
-These are only needed to **re-run** the UMAP computation pipeline. The web app works without them.
+Download them with the provided script (see below). These are only needed to **re-run** the UMAP computation pipeline. The web app works without them.
 
 ---
 
@@ -82,9 +85,15 @@ This opens the interactive explorer at `http://localhost:8000/index.html`.
 
 ### Full Pipeline (re-generate everything from embeddings)
 
-If you have the raw `.npy` embedding files:
+> **Want to re-run the model?** Open [`notebooks/generate_embeddings.ipynb`](notebooks/generate_embeddings.ipynb) in Google Colab (GPU recommended). It downloads hg38, runs AlphaGenome on every 131 KB bin, and saves `chr*_embeddings.npy` / `chr*_metadata.csv`. Pre-computed results are available on [HuggingFace](https://huggingface.co/datasets/lagosproject/ALPHAGenome-Embeddings).
 
 ```bash
+# 0. Download embeddings from HuggingFace (~312 MB)
+python3 scripts/download_embeddings.py
+
+# Or download only specific chromosomes:
+python3 scripts/download_embeddings.py chr1 chr22
+
 # 1. Run UMAP dimensionality reduction
 python3 scripts/run_umap.py
 
@@ -107,6 +116,7 @@ numpy
 pandas
 umap-learn
 requests
+huggingface_hub
 ```
 
 ---
