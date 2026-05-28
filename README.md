@@ -1,6 +1,7 @@
 # ALPHAGenome DNA Embeddings — UMAP Explorer
 
 [![GitHub Pages](https://img.shields.io/badge/🧬_Live_Demo-GitHub_Pages-6366f1?style=for-the-badge)](https://lagosproject.github.io/DNAEmbeddings/)
+[![HuggingFace Dataset](https://img.shields.io/badge/🤗_Dataset-HuggingFace-FFD21E?style=for-the-badge)](https://huggingface.co/datasets/lagosproject/ALPHAGenome-Embeddings)
 
 An interactive visualization of latent relationships between genomic regions, built from **ALPHAGenome** DNA foundation model embeddings.
 
@@ -18,9 +19,19 @@ The web app runs entirely in the browser — no server needed. All pre-computed 
 
 ---
 
+## 📊 Data & Dataset
+
+The raw embeddings are available on HuggingFace:
+
+**→ [lagosproject/ALPHAGenome-Embeddings](https://huggingface.co/datasets/lagosproject/ALPHAGenome-Embeddings)**
+
+This dataset contains the pre-computed 3,072-dimensional embeddings for all genomic bins across the human genome (hg38), along with metadata and reference annotations.
+
+---
+
 ## 🧬 What This Visualizes
 
-The human genome (hg38 / GRCh38) is divided into **~12,400 non-overlapping 131 KB bins**. Each bin's DNA sequence is embedded into a 3,072-dimensional latent space using the ALPHAGenome foundation model. These high-dimensional embeddings are then projected into 2D using UMAP, revealing:
+The human genome (hg38 / GRCh38) is divided into **~12,400 non-overlapping 131 KB bins**. Each bin's DNA sequence is embedded into a 3,072-dimensional latent space using the ALPHAGenome foundation model. These embeddings reveal:
 
 - **Chromatin structure clusters** — Regions with similar regulatory profiles cluster together
 - **Gene-level patterns** — Averaged bin embeddings per gene, projected to a Gene UMAP
@@ -85,7 +96,7 @@ This opens the interactive explorer at `http://localhost:8000/index.html`.
 
 ### Full Pipeline (re-generate everything from embeddings)
 
-> **Want to re-run the model?** Open [`notebooks/generate_embeddings.ipynb`](notebooks/generate_embeddings.ipynb) in Google Colab (GPU recommended). It downloads hg38, runs AlphaGenome on every 131 KB bin, and saves `chr*_embeddings.npy` / `chr*_metadata.csv`. Pre-computed results are available on [HuggingFace](https://huggingface.co/datasets/lagosproject/ALPHAGenome-Embeddings).
+> **Want to re-run the model?** Open [`notebooks/generate_embeddings.ipynb`](notebooks/generate_embeddings.ipynb) in Google Colab (GPU recommended). It downloads hg38, runs AlphaGenome on every 131 KB bin, and outputs embeddings.
 
 ```bash
 # 0. Download embeddings from HuggingFace (~312 MB)
