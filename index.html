@@ -2061,6 +2061,7 @@
                 
                 const row = document.createElement('div');
                 row.className = 'karyotype-row';
+                row.id = `karyotype-row-${c}`;
                 row.innerHTML = `
                     <div class="karyotype-chrom-label">${c}</div>
                     <div class="karyotype-bar-wrapper" style="max-width: ${widthPercent}%;">
@@ -2850,6 +2851,7 @@
                 }
                 
                 chromosomes.forEach(c => {
+                    const row = document.getElementById(`karyotype-row-${c}`);
                     const container = document.getElementById(`karyotype-highlights-${c}`);
                     if (!container) return;
                     
@@ -2857,6 +2859,12 @@
                     if (!maxEnd) return;
                     
                     const list = segmentsToRender[c];
+                    if (list.length === 0) {
+                        if (row) row.style.display = 'none';
+                        return;
+                    }
+                    if (row) row.style.display = '';
+                    
                     list.forEach(seg => {
                         const leftPercent = (seg.start / maxEnd) * 100;
                         const widthPercent = Math.max(0.6, ((seg.end - seg.start) / maxEnd) * 100);
@@ -2906,6 +2914,7 @@
                 }
                 
                 chromosomes.forEach(c => {
+                    const row = document.getElementById(`karyotype-row-${c}`);
                     const container = document.getElementById(`karyotype-highlights-${c}`);
                     if (!container) return;
                     
@@ -2913,6 +2922,12 @@
                     if (!maxEnd) return;
                     
                     const list = segmentsToRender[c];
+                    if (list.length === 0) {
+                        if (row) row.style.display = 'none';
+                        return;
+                    }
+                    if (row) row.style.display = '';
+                    
                     list.forEach(seg => {
                         const leftPercent = (seg.start / maxEnd) * 100;
                         const widthPercent = Math.max(1.0, ((seg.end - seg.start) / maxEnd) * 100);
@@ -2979,6 +2994,7 @@
                 }
                 
                 chromosomes.forEach(c => {
+                    const row = document.getElementById(`karyotype-row-${c}`);
                     const container = document.getElementById(`karyotype-highlights-${c}`);
                     if (!container) return;
                     
@@ -2986,6 +3002,12 @@
                     if (!maxEnd) return;
                     
                     const list = segmentsToRender[c];
+                    if (list.length === 0) {
+                        if (row) row.style.display = 'none';
+                        return;
+                    }
+                    if (row) row.style.display = '';
+                    
                     list.forEach(seg => {
                         const leftPercent = (seg.start / maxEnd) * 100;
                         const widthPercent = Math.max(1.0, ((seg.end - seg.start) / maxEnd) * 100);
@@ -3023,6 +3045,12 @@
             
             const oldCursor = document.getElementById('karyotype-hover-cursor');
             if (oldCursor) oldCursor.remove();
+            
+            // Show all rows
+            chromosomes.forEach(c => {
+                const row = document.getElementById(`karyotype-row-${c}`);
+                if (row) row.style.display = '';
+            });
             
             document.getElementById('zoom-stat-text').innerHTML = `Zoom UMAP to highlight corresponding physical regions`;
         }
